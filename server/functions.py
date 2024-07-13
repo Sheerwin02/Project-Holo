@@ -11,6 +11,7 @@ load_dotenv()
 # Load NinjasAPI key
 NINJAS_API_KEY = os.getenv("NINJAS_API_KEY")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 random.seed(2024)
 
@@ -52,6 +53,24 @@ def get_weather():
     else:
         return "Unable to retrieve weather data."
 
+# News API
+def get_news_updates(topic):
+    api_key = NEWS_API_KEY
+    url = f"https://newsapi.org/v2/everything?q={topic}&apiKey={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        articles = data['articles']
+        news_text = f"Latest news on {topic}:\n"
+        for article in articles[:5]:  # Limit to 5 articles
+            title = article['title']
+            description = article['description']
+            url = article['url']
+            news_text += f"{title}\n{description}\nRead more: {url}\n\n"
+        return news_text
+    else:
+        return "Unable to retrieve news updates."
+
 # Weather forecast
 
 # def get_weather(location):
@@ -80,7 +99,7 @@ def get_weather():
 #         print(f"Error getting weather: {e}")
 #         return None
 
-######  TESTING AREA  ######
+######  TESTING WEATHER AREA  ######
 
 location_data = get_current_location()
 if location_data:
@@ -91,3 +110,13 @@ if location_data:
         
 else:
     print("Failed to get location data")
+
+######  TESTING NEWS AREA  ######
+# Test news function
+topic = "technology"
+news_data = get_news_updates(topic)
+if news_data:
+    print("News Test:")
+    print(news_data)
+else:
+    print("Failed to get news updates")

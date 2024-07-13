@@ -4,7 +4,7 @@ import json
 import time
 from openai import OpenAI
 from dotenv import load_dotenv
-from functions import get_current_location, get_weather
+from functions import get_current_location, get_weather, get_news_updates
 
 # Load environment variables
 load_dotenv()

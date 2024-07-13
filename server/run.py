@@ -5,10 +5,10 @@ from pydantic import BaseModel
 from instructions import holo_instructions
 # from functions import get_city_for_date, get_qa
 from assistant import create_assistant, create_thread, get_completion
-from functions import get_current_location, get_weather
+from functions import get_current_location, get_weather, get_news_updates
 
 # List of functions
-funcs = [get_current_location, get_weather]
+funcs = [get_current_location, get_weather, get_news_updates]
 # Create FastAPI app
 app = FastAPI()
 
@@ -56,7 +56,7 @@ assistant_id = create_assistant(
         "type": "function",
         "function": {
             "name": "get_weather",
-            "description": "Get the current weather for the specified location. The assistant will give advice based on the weather.",
+            "description": "Get the current weather for the specified location. The assistant will give advice based on the weather and it will also advice the users weather is suitable to go out or not.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -66,6 +66,23 @@ assistant_id = create_assistant(
                     # }
                 },
                 "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_news_updates",
+            "description": "Get the latest news updates on a given topic in a short summary. The assistant will reply in a short sentence",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "The topic for which to get the news updates."
+                    }
+                },
+                "required": ["topic"]
             }
         }
     },
