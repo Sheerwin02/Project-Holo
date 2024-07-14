@@ -4,7 +4,11 @@ import json
 import time
 from openai import OpenAI
 from dotenv import load_dotenv
-from functions import get_current_location, get_weather, get_news_updates
+from utils import get_current_location, get_weather, get_news_updates
+
+
+# Registering the functions
+#funcs = [get_current_location, get_weather, get_news_updates]
 
 # Load environment variables
 load_dotenv()
@@ -157,6 +161,8 @@ def get_completion(assistant_id, thread_id, user_input, funcs, debug=False):
                 thread_id=thread_id,
                 run_id=run.id
             )
+            if debug:
+                print("Run status:", run.status)
             time.sleep(1)
         
         if run.status == "requires_action":
@@ -165,23 +171,29 @@ def get_completion(assistant_id, thread_id, user_input, funcs, debug=False):
 
             for tool_call in tool_calls:
                 if debug:
-                    print(str(tool_call.function))
-                func = next(iter([func for func in funcs if func.__name__ == tool_call.function.name]))
+                    print("Tool call function:", tool_call.function)
                 try:
-                    output = func(**eval(tool_call.function.arguments))
-                except Exception as e:
-                    output = "Error: " + str(e)
+                    func = next(iter([func for func in funcs if func.__name__ == tool_call.function.name]))
+                    try:
+                        output = func(**eval(tool_call.function.arguments))
+                    except Exception as e:
+                        output = "Error: " + str(e)
 
-                if debug:
-                    print(f"{tool_call.function.name}: ", output)
-                
-                tool_outputs.append(
-                    {
-                        "tool_call_id": tool_call.id, 
-                        "output": json.dumps(output)
-                    }
-                )
+                    if debug:
+                        print(f"{tool_call.function.name}: ", output)
+                    
+                    tool_outputs.append(
+                        {
+                            "tool_call_id": tool_call.id, 
+                            "output": json.dumps(output)
+                        }
+                    )
 
+                except StopIteration:
+                    if debug:
+                        print(f"No matching function for {tool_call.function.name}")
+                    continue  # Skip this tool call if no matching function is found
+                    
             run = client.beta.threads.runs.submit_tool_outputs(
                 thread_id=thread_id,
                 run_id=run.id,

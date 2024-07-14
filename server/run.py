@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from instructions import holo_instructions
 # from functions import get_city_for_date, get_qa
 from assistant import create_assistant, create_thread, get_completion
-from functions import get_current_location, get_weather, get_news_updates
+from utils import get_current_location, get_weather, get_news_updates
 
 # List of functions
 funcs = [get_current_location, get_weather, get_news_updates]
