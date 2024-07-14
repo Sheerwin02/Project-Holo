@@ -10,6 +10,7 @@ from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
 from utils import get_current_location, get_weather, get_news_updates
 
 from chat_dialog import ChatDialog
+from sticky_note_dialog import StickyNoteDialog
 from assistant import create_assistant, create_thread, get_completion
 
 # Registering the functions
@@ -142,6 +143,7 @@ class myAssistant(QWidget):
         addPet = contextMenu.addAction("Add")
         removePet = contextMenu.addAction("Delete")
         chat = contextMenu.addAction("Chat")
+        sticky_note = contextMenu.addAction("Sticky Note")
         about = contextMenu.addAction("About")
         quit = contextMenu.addAction("Quit")
 
@@ -152,10 +154,16 @@ class myAssistant(QWidget):
             delOnePet()
         elif action == chat:
             self.chatWithAssistant()
+        elif action == sticky_note:
+            self.open_sticky_note()
         elif action == about:
             aboutInfo()
         elif action == quit:
             os._exit(0)
+            
+    def open_sticky_note(self):
+        self.sticky_note_dialog = StickyNoteDialog()
+        self.sticky_note_dialog.show()
     
     def chatWithAssistant(self):
         user_input, ok = QInputDialog.getText(self, 'Chat with Assistant', 'Enter your message:')
@@ -185,6 +193,8 @@ def delOnePet():
 
 def aboutInfo():
     webbrowser.open_new_tab("https://github.com/luxingwen/desktop-pet-miku")
+
+
 
 # def chatWithAssistant():
 #     chat_dialog = ChatDialog(assistant_id, thread_id)
