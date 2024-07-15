@@ -11,6 +11,7 @@ from utils import get_current_location, get_weather, get_news_updates
 
 from chat_dialog import ChatDialog
 from sticky_note_dialog import StickyNoteDialog
+from screen_time_tracker import ScreenTimeTracker
 from assistant import create_assistant, create_thread, get_completion
 
 # Registering the functions
@@ -39,6 +40,7 @@ class myAssistant(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.initUI()
+        self.screen_time_update_timer = QTimer()
 
     def initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.SubWindow)
@@ -50,9 +52,15 @@ class myAssistant(QWidget):
         self.chat_bubble.setWordWrap(True)
         self.chat_bubble.setStyleSheet("background-color: black; border: 1px solid black; border-radius: 10px; padding: 5px;")
         self.chat_bubble.hide()
+
+        self.screen_time_label = QLabel(self)  # Add this line
+        self.screen_time_label.setStyleSheet("background-color: black; border: 1px solid black; padding: 5px;")
+        self.screen_time_label.hide()  # Initially hide the label
+
         layout = QVBoxLayout()
         layout.addWidget(self.img)
         layout.addWidget(self.chat_bubble)
+        layout.addWidget(self.screen_time_label)
         self.setLayout(layout)
         self.actionDatas = []
         self.initData()
@@ -65,6 +73,10 @@ class myAssistant(QWidget):
         self.timer.timeout.connect(self.actionRun)
         self.timer.start(500)
         self.randomPos()
+        
+        self.screen_time_tracker = ScreenTimeTracker()
+        self.screen_time_tracker.screen_time_exceeded.connect(self.remind_to_rest)
+        self.screen_time_tracker.screen_time_updated.connect(self.update_screen_time_label)
 
     def getImgs(self, pics):
         listPic = []
@@ -144,6 +156,8 @@ class myAssistant(QWidget):
         removePet = contextMenu.addAction("Delete")
         chat = contextMenu.addAction("Chat")
         sticky_note = contextMenu.addAction("Sticky Note")
+        toggle_reminder = contextMenu.addAction("Toggle Reminder")
+        display_screen_time = contextMenu.addAction("Display Screen Time")  # New option
         about = contextMenu.addAction("About")
         quit = contextMenu.addAction("Quit")
 
@@ -156,11 +170,16 @@ class myAssistant(QWidget):
             self.chatWithAssistant()
         elif action == sticky_note:
             self.open_sticky_note()
+        elif action == toggle_reminder:
+            self.toggle_screen_time_reminder()
+        elif action == display_screen_time:  # Handle the new option
+            self.screen_time_update_timer.timeout.connect(self.update_screen_time_from_tracker)
+            self.screen_time_update_timer.start(1000) # Update every second
         elif action == about:
             aboutInfo()
         elif action == quit:
             os._exit(0)
-            
+
     def open_sticky_note(self):
         self.sticky_note_dialog = StickyNoteDialog()
         self.sticky_note_dialog.show()
@@ -181,6 +200,36 @@ class myAssistant(QWidget):
 
     def handle_response(self, response):
         self.display_chat_bubble(f"Assistant: {response}")
+    
+    ## Screen Time Tracker
+    # def show_screen_time(self, formatted_time):
+    #     self.display_chat_bubble(f"Current screen time: {formatted_time}")
+    
+    def toggle_screen_time_reminder(self):
+        if not self.screen_time_tracker.reminder_enabled:
+            interval, ok = QInputDialog.getInt(self, 'Set Rest Reminder Interval', 'Enter rest reminder interval in minutes:', value=60, min=1)
+            if ok:
+                self.screen_time_tracker.set_reminder_interval(interval * 60)  # Convert minutes to seconds
+                self.screen_time_tracker.toggle_reminder(True)
+                QMessageBox.information(self, "Reminder Enabled", f"Rest reminder set for {interval} minutes.")
+        else:
+            self.screen_time_tracker.toggle_reminder(False)
+            QMessageBox.information(self, "Reminder Disabled", "Rest reminder has been disabled.")
+
+    def remind_to_rest(self):
+        self.display_chat_bubble("Time to take a break! Rest for a while.")
+        QMessageBox.information(self, "Rest Reminder", "You have been working for an hour. It's time to take a 5-minute break.")
+    
+    def update_screen_time_label(self, formatted_time):
+        self.screen_time_label.setText(f"Screen Time: {formatted_time}")
+        self.screen_time_label.adjustSize()
+        self.screen_time_label.show()
+
+    def update_screen_time_from_tracker(self):
+        formatted_time = self.screen_time_tracker.get_current_screen_time()
+        self.update_screen_time_label(formatted_time)
+
+
 
 def addOnePet():
     pets.append(myAssistant())
