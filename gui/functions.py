@@ -15,6 +15,9 @@ from screen_time_tracker import ScreenTimeTracker
 from to_do_list import ToDoListDialog
 from assistant import create_assistant, create_thread, get_completion
 
+# from GoogleOAuth import GoogleOAuth
+from GoogleOAuth import connect_to_google_account
+
 # Registering the functions
 funcs = [get_current_location, get_weather, get_news_updates]
 
@@ -161,7 +164,8 @@ class myAssistant(QWidget):
         sticky_note = contextMenu.addAction("Sticky Note")
         to_do_list = contextMenu.addAction("To-Do List")
         toggle_reminder = contextMenu.addAction("Toggle Reminder")
-        display_screen_time = contextMenu.addAction("Display Screen Time")  # New option
+        display_screen_time = contextMenu.addAction("Display Screen Time")
+        connect_google = contextMenu.addAction("Connect Google Account")
         about = contextMenu.addAction("About")
         quit = contextMenu.addAction("Quit")
 
@@ -181,6 +185,8 @@ class myAssistant(QWidget):
         elif action == display_screen_time:  # Handle the new option
             self.screen_time_update_timer.timeout.connect(self.update_screen_time_from_tracker)
             self.screen_time_update_timer.start(1000) # Update every second
+        elif action == connect_google:  # Handle the new option
+            self.connect_to_google_account()
         elif action == about:
             aboutInfo()
         elif action == quit:
@@ -234,7 +240,10 @@ class myAssistant(QWidget):
     def update_screen_time_from_tracker(self):
         formatted_time = self.screen_time_tracker.get_current_screen_time()
         self.update_screen_time_label(formatted_time)
-
+    
+    def connect_to_google_account(self):
+        message = connect_to_google_account()
+        QMessageBox.information(self, "Google Account Connection", message)
 
 
 def addOnePet():
