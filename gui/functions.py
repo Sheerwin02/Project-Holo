@@ -12,6 +12,7 @@ from utils import get_current_location, get_weather, get_news_updates
 from chat_dialog import ChatDialog
 from sticky_note_dialog import StickyNoteDialog
 from screen_time_tracker import ScreenTimeTracker
+from to_do_list import ToDoListDialog
 from assistant import create_assistant, create_thread, get_completion
 
 # Registering the functions
@@ -77,6 +78,8 @@ class myAssistant(QWidget):
         self.screen_time_tracker = ScreenTimeTracker()
         self.screen_time_tracker.screen_time_exceeded.connect(self.remind_to_rest)
         self.screen_time_tracker.screen_time_updated.connect(self.update_screen_time_label)
+
+        self.to_do_list_dialog = ToDoListDialog()
 
     def getImgs(self, pics):
         listPic = []
@@ -156,6 +159,7 @@ class myAssistant(QWidget):
         removePet = contextMenu.addAction("Delete")
         chat = contextMenu.addAction("Chat")
         sticky_note = contextMenu.addAction("Sticky Note")
+        to_do_list = contextMenu.addAction("To-Do List")
         toggle_reminder = contextMenu.addAction("Toggle Reminder")
         display_screen_time = contextMenu.addAction("Display Screen Time")  # New option
         about = contextMenu.addAction("About")
@@ -170,6 +174,8 @@ class myAssistant(QWidget):
             self.chatWithAssistant()
         elif action == sticky_note:
             self.open_sticky_note()
+        elif action == to_do_list:
+            self.to_do_list_dialog.show()
         elif action == toggle_reminder:
             self.toggle_screen_time_reminder()
         elif action == display_screen_time:  # Handle the new option

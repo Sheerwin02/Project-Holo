@@ -7,8 +7,8 @@ from functions import myAssistant
 database.initialize_db()
 
 if __name__ == "__main__":
-    global pets
-    pets = []
+    # global pets
+    # pets = []
     app = QApplication(sys.argv)
     w = myAssistant()
     sys.exit(app.exec())
