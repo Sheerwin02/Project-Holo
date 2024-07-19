@@ -16,7 +16,8 @@ from to_do_list import ToDoListDialog
 from assistant import create_assistant, create_thread, get_completion
 
 # from GoogleOAuth import GoogleOAuth
-from GoogleOAuth import connect_to_google_account
+from GoogleOAuth import connect_to_google_account, get_upcoming_events
+from calendar_widget import CalendarWidget  
 
 # Registering the functions
 funcs = [get_current_location, get_weather, get_news_updates]
@@ -83,6 +84,8 @@ class myAssistant(QWidget):
         self.screen_time_tracker.screen_time_updated.connect(self.update_screen_time_label)
 
         self.to_do_list_dialog = ToDoListDialog()
+
+        self.calendar_widget = CalendarWidget() 
 
     def getImgs(self, pics):
         listPic = []
@@ -166,6 +169,8 @@ class myAssistant(QWidget):
         toggle_reminder = contextMenu.addAction("Toggle Reminder")
         display_screen_time = contextMenu.addAction("Display Screen Time")
         connect_google = contextMenu.addAction("Connect Google Account")
+        show_calendar = contextMenu.addAction("Show Calendar")
+        #upcoming_events = contextMenu.addAction("Show Upcoming Events")
         about = contextMenu.addAction("About")
         quit = contextMenu.addAction("Quit")
 
@@ -185,8 +190,12 @@ class myAssistant(QWidget):
         elif action == display_screen_time:  # Handle the new option
             self.screen_time_update_timer.timeout.connect(self.update_screen_time_from_tracker)
             self.screen_time_update_timer.start(1000) # Update every second
-        elif action == connect_google:  # Handle the new option
+        elif action == connect_google: 
             self.connect_to_google_account()
+        elif action == show_calendar:
+            self.show_calendar_widget()
+        #elif action == upcoming_events:
+            #self.show_upcoming_events()
         elif action == about:
             aboutInfo()
         elif action == quit:
@@ -244,6 +253,14 @@ class myAssistant(QWidget):
     def connect_to_google_account(self):
         message = connect_to_google_account()
         QMessageBox.information(self, "Google Account Connection", message)
+    
+    def show_upcoming_events(self):
+        events = get_upcoming_events()
+        QMessageBox.information(self, "Upcoming Events", events)
+    
+    def show_calendar_widget(self):
+        self.calendar_widget.update_events()
+        self.calendar_widget.show()
 
 
 def addOnePet():
