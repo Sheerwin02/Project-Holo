@@ -46,6 +46,7 @@ class myAssistant(QWidget):
         super().__init__(parent)
         self.initUI()
         self.screen_time_update_timer = QTimer()
+        self.google_connected = False
 
     def initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.SubWindow)
@@ -168,7 +169,7 @@ class myAssistant(QWidget):
         to_do_list = contextMenu.addAction("To-Do List")
         toggle_reminder = contextMenu.addAction("Toggle Reminder")
         display_screen_time = contextMenu.addAction("Display Screen Time")
-        connect_google = contextMenu.addAction("Connect Google Account")
+        connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
         show_calendar = contextMenu.addAction("Show Calendar")
         #upcoming_events = contextMenu.addAction("Show Upcoming Events")
         about = contextMenu.addAction("About")
@@ -190,8 +191,11 @@ class myAssistant(QWidget):
         elif action == display_screen_time:  # Handle the new option
             self.screen_time_update_timer.timeout.connect(self.update_screen_time_from_tracker)
             self.screen_time_update_timer.start(1000) # Update every second
-        elif action == connect_google: 
-            self.connect_to_google_account()
+        elif action == connect_google:
+            if self.google_connected:
+                self.disconnect_google_account()
+            else:
+                self.connect_to_google_account()
         elif action == show_calendar:
             self.show_calendar_widget()
         #elif action == upcoming_events:
@@ -251,8 +255,14 @@ class myAssistant(QWidget):
         self.update_screen_time_label(formatted_time)
     
     def connect_to_google_account(self):
-        message = connect_to_google_account()
+        message, connected = connect_to_google_account()
+        self.google_connected = connected
         QMessageBox.information(self, "Google Account Connection", message)
+    
+    def disconnect_google_account(self):
+        os.remove('token.json')
+        self.google_connected = False
+        QMessageBox.information(self, "Google Account Connection", "Google account disconnected successfully.")
     
     def show_upcoming_events(self):
         events = get_upcoming_events()

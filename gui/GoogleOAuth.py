@@ -11,6 +11,8 @@ logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s 
 # Define the scope
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
+# In GoogleOAuth.py
+
 def connect_to_google_account():
     creds = None
     token_path = 'token.json'
@@ -19,6 +21,9 @@ def connect_to_google_account():
     try:
         if os.path.exists(token_path):
             creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+            if creds and creds.valid:
+                logging.info("Google account already connected.")
+                return "Google account already connected.", True
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
@@ -28,10 +33,11 @@ def connect_to_google_account():
             with open(token_path, 'w') as token:
                 token.write(creds.to_json())
         logging.info("Google account connected successfully.")
-        return "Google account connected successfully."
+        return "Google account connected successfully.", True
     except Exception as e:
         logging.error(f"Error obtaining credentials: {e}")
-        return f"Error obtaining credentials: {e}"
+        return f"Error obtaining credentials: {e}", False
+
 
 def get_calendar_service():
     try:
