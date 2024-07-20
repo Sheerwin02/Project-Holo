@@ -17,7 +17,9 @@ from assistant import create_assistant, create_thread, get_completion
 
 # from GoogleOAuth import GoogleOAuth
 from GoogleOAuth import connect_to_google_account, get_upcoming_events
-from calendar_widget import CalendarWidget  
+from calendar_widget import CalendarWidget
+
+from focus import FocusTimer
 
 # Registering the functions
 funcs = [get_current_location, get_weather, get_news_updates]
@@ -47,6 +49,8 @@ class myAssistant(QWidget):
         self.initUI()
         self.screen_time_update_timer = QTimer()
         self.google_connected = False
+        # Focus Mode
+        self.focus_timer = FocusTimer()
 
     def initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.SubWindow)
@@ -171,6 +175,7 @@ class myAssistant(QWidget):
         display_screen_time = contextMenu.addAction("Display Screen Time")
         connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
         show_calendar = contextMenu.addAction("Show Calendar")
+        focus_mode = contextMenu.addAction("Focus Mode")
         #upcoming_events = contextMenu.addAction("Show Upcoming Events")
         about = contextMenu.addAction("About")
         quit = contextMenu.addAction("Quit")
@@ -198,6 +203,8 @@ class myAssistant(QWidget):
                 self.connect_to_google_account()
         elif action == show_calendar:
             self.show_calendar_widget()
+        elif action == focus_mode:
+            self.show_focus_timer()
         #elif action == upcoming_events:
             #self.show_upcoming_events()
         elif action == about:
@@ -271,6 +278,9 @@ class myAssistant(QWidget):
     def show_calendar_widget(self):
         self.calendar_widget.update_events()
         self.calendar_widget.show()
+    
+    def show_focus_timer(self):  # Method to show the Focus Timer
+        self.focus_timer.show()
 
 
 def addOnePet():
