@@ -1,17 +1,24 @@
+from email.mime.application import MIMEApplication
 import os
 import logging
+import base64
+from email.mime.text import MIMEText
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
+import mimetypes
+from email.mime.multipart import MIMEMultipart
 
 # Configure logging
 logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Define the scope
-SCOPES = ['https://www.googleapis.com/auth/calendar']
-
-# In GoogleOAuth.py
+SCOPES = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.send'
+]
 
 def connect_to_google_account():
     creds = None
@@ -127,3 +134,128 @@ def delete_event(event_id):
             logging.error(f"Error deleting event: {e}")
             return f"Error deleting event: {e}"
     return "Failed to build Google Calendar service."
+
+# Email functions
+
+def get_gmail_service():
+    try:
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        service = build('gmail', 'v1', credentials=creds)
+        logging.info("Gmail service built successfully.")
+        return service
+    except Exception as e:
+        logging.error(f"Error building Gmail service: {e}")
+        return None
+
+def fetch_emails(max_results=10):
+    service = get_gmail_service()
+    if service:
+        try:
+            results = service.users().messages().list(userId='me', maxResults=max_results).execute()
+            messages = results.get('messages', [])
+            email_list = []
+
+            logging.info(f"Fetched {len(messages)} messages.")
+
+            for msg in messages:
+                try:
+                    msg_detail = service.users().messages().get(userId='me', id=msg['id']).execute()
+                    headers = msg_detail.get('payload', {}).get('headers', [])
+                    subject = next(header['value'] for header in headers if header['name'] == 'Subject')
+
+                    email_list.append({
+                        'id': msg['id'],
+                        'snippet': msg_detail.get('snippet', 'No snippet available'),
+                        'subject': subject if subject else 'No subject'
+                    })
+                except StopIteration:
+                    logging.warning(f"Message with ID {msg['id']} does not have a subject.")
+                    email_list.append({
+                        'id': msg['id'],
+                        'snippet': msg_detail.get('snippet', 'No snippet available'),
+                        'subject': 'No subject'
+                    })
+                except Exception as e:
+                    logging.error(f"Error retrieving details for message ID {msg['id']}: {e}")
+
+            logging.info("Emails retrieved successfully.")
+            return email_list
+
+        except Exception as e:
+            logging.error(f"Error retrieving emails: {e}")
+            return [f"Error retrieving emails: {e}"]
+    else:
+        logging.error("Failed to build Gmail service.")
+        return ["Failed to build Gmail service."]
+
+
+def quick_reply(message_id, reply_text):
+    service = get_gmail_service()
+    if service:
+        try:
+            message = service.users().messages().get(userId='me', id=message_id).execute()
+            thread_id = message['threadId']
+            reply = {
+                'raw': base64.urlsafe_b64encode(reply_text.encode("utf-8")).decode("utf-8"),
+                'threadId': thread_id
+            }
+            service.users().messages().send(userId='me', body=reply).execute()
+            logging.info(f"Reply sent successfully to thread: {thread_id}")
+            return f"Reply sent successfully to thread: {thread_id}"
+        except Exception as e:
+            logging.error(f"Error sending reply: {e}")
+            return f"Error sending reply: {e}"
+    return "Failed to build Gmail service."
+
+def send_email(to, subject, body):
+    service = get_gmail_service()
+    if service:
+        try:
+            message = MIMEText(body)
+            message['to'] = to
+            message['subject'] = subject
+            raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            message = {'raw': raw}
+            service.users().messages().send(userId='me', body=message).execute()
+            logging.info(f"Email sent successfully to: {to}")
+            return f"Email sent successfully to: {to}"
+        except Exception as e:
+            logging.error(f"Error sending email: {e}")
+            return f"Error sending email: {e}"
+    return "Failed to build Gmail service."
+
+def get_email_details(email_id):
+    service = get_gmail_service()
+    if service:
+        try:
+            message = service.users().messages().get(userId='me', id=email_id, format='full').execute()
+            payload = message['payload']
+            headers = payload['headers']
+            subject = next(header['value'] for header in headers if header['name'] == 'Subject')
+            from_ = next(header['value'] for header in headers if header['name'] == 'From')
+            date = next(header['value'] for header in headers if header['name'] == 'Date')
+            body = ''
+            if 'parts' in payload:
+                for part in payload['parts']:
+                    if part['mimeType'] == 'text/plain':
+                        body += part['body']['data']
+            else:
+                body = payload['body']['data']
+            body = base64.urlsafe_b64decode(body.encode('UTF-8')).decode('utf-8')
+            return {'subject': subject, 'from': from_, 'date': date, 'body': body}
+        except Exception as e:
+            logging.error(f"Error getting email details: {e}")
+            return None
+    return None
+
+def delete_email(email_id):
+    service = get_gmail_service()
+    if service:
+        try:
+            service.users().messages().delete(userId='me', id=email_id).execute()
+            logging.info(f"Email deleted successfully: {email_id}")
+            return f"Email deleted successfully: {email_id}"
+        except Exception as e:
+            logging.error(f"Error deleting email: {e}")
+            return f"Error deleting email: {e}"
+    return "Failed to build Gmail service."

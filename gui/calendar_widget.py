@@ -8,6 +8,7 @@ from GoogleOAuth import get_upcoming_events, add_event, edit_event, delete_event
 from assistant import get_completion, create_assistant, create_thread
 from utils import get_current_location, get_weather, get_news_updates
 import datetime
+import pytz
 from plyer import notification
 
 # Registering the functions
@@ -33,8 +34,6 @@ class NotificationThread(QThread):
 
 class CalendarWidget(QWidget):
     notify_chat = pyqtSignal(str)
-
-
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -222,62 +221,69 @@ class CalendarWidget(QWidget):
             for event in events_list:
                 print(f"Processing event: {event}")  # Debugging statement
                 event_details = event.split(": ")
-                event_datetime = datetime.datetime.fromisoformat(event_details[1].replace("Z", "+00:00")).astimezone(datetime.timezone.utc)
-                event_date_str = event_datetime.strftime("%Y-%m-%d")
-                event_day = event_datetime.strftime("%A")
-                now = datetime.datetime.now(datetime.timezone.utc)
-                days_left = (event_datetime - now).days
-                if len(event_details) > 3:
-                    event_end = datetime.datetime.fromisoformat(event_details[3].replace("Z", "+00:00")).astimezone(datetime.timezone.utc)
-                else:
-                    event_end = event_datetime + datetime.timedelta(hours=1)
-                duration = event_end - event_datetime
+                if len(event_details) < 2:
+                    print(f"Skipping event due to insufficient details: {event}")  # Debugging statement
+                    continue
 
-                if days_left < 0 and now <= event_end:
-                    days_left_text = "Happening now"
-                elif days_left < 0:
-                    days_left_text = f"{-days_left} days ago"
-                else:
-                    days_left_text = f"{days_left} days"
+                try:
+                    event_datetime = datetime.datetime.fromisoformat(event_details[1].replace("Z", "+00:00")).astimezone(datetime.timezone.utc)
+                    event_date_str = event_datetime.strftime("%Y-%m-%d")
+                    event_day = event_datetime.strftime("%A")
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    days_left = (event_datetime - now).days
+                    if len(event_details) > 3:
+                        event_end = datetime.datetime.fromisoformat(event_details[3].replace("Z", "+00:00")).astimezone(datetime.timezone.utc)
+                    else:
+                        event_end = event_datetime + datetime.timedelta(hours=1)
+                    duration = event_end - event_datetime
 
-                if (filter_date in event_date_str and search_text in event.lower()) or (not filter_date and not search_text):
-                    event_frame = QFrame(self.scroll_content)
-                    event_frame.setFrameShape(QFrame.Shape.StyledPanel)
-                    event_frame.setStyleSheet("""
-                        QFrame {
-                            background-color: #ffffff;
-                            border: 1px solid #d0d0d0;
-                            border-radius: 5px;
-                            padding: 10px;
-                            margin-bottom: 10px;
-                        }
-                        QFrame:hover {
-                            background-color: #E0FFFF;
-                        }
-                    """)
+                    if days_left < 0 and now <= event_end:
+                        days_left_text = "Happening now"
+                    elif days_left < 0:
+                        days_left_text = f"{-days_left} days ago"
+                    else:
+                        days_left_text = f"{days_left} days"
 
-                    event_layout = QVBoxLayout(event_frame)
-                    event_layout.setSpacing(5)
+                    if (filter_date in event_date_str and search_text in event.lower()) or (not filter_date and not search_text):
+                        event_frame = QFrame(self.scroll_content)
+                        event_frame.setFrameShape(QFrame.Shape.StyledPanel)
+                        event_frame.setStyleSheet("""
+                            QFrame {
+                                background-color: #ffffff;
+                                border: 1px solid #d0d0d0;
+                                border-radius: 5px;
+                                padding: 10px;
+                                margin-bottom: 10px;
+                            }
+                            QFrame:hover {
+                                background-color: #E0FFFF;
+                            }
+                        """)
 
-                    date_label = QLabel(f"<b>{event_date_str} ({event_day})</b>")
-                    date_label.setStyleSheet("color: #000000; font-size: 16px;")
-                    event_layout.addWidget(date_label)
+                        event_layout = QVBoxLayout(event_frame)
+                        event_layout.setSpacing(5)
 
-                    details_label = QLabel(f"""
-                    Days Left: {days_left_text}
-                    Duration: {duration}
-                    Summary: {event_details[-1]}
-                    """)
-                    details_label.setWordWrap(True)
-                    details_label.setStyleSheet("color: #000000; font-size: 14px;")
-                    event_layout.addWidget(details_label)
+                        date_label = QLabel(f"<b>{event_date_str} ({event_day})</b>")
+                        date_label.setStyleSheet("color: #000000; font-size: 16px;")
+                        event_layout.addWidget(date_label)
 
-                    event_frame.setLayout(event_layout)
-                    event_frame.mousePressEvent = lambda e, event=event: self.show_event_details(event)
+                        details_label = QLabel(f"""
+                        Days Left: {days_left_text}
+                        Duration: {duration}
+                        Summary: {event_details[-1]}
+                        """)
+                        details_label.setWordWrap(True)
+                        details_label.setStyleSheet("color: #000000; font-size: 14px;")
+                        event_layout.addWidget(details_label)
 
-                    self.scroll_layout.addWidget(event_frame)
+                        event_frame.setLayout(event_layout)
+                        event_frame.mousePressEvent = lambda e, event=event: self.show_event_details(event)
 
-                    self.create_notification(event_datetime, event_details[-1], 10)  # Default reminder 10 minutes before
+                        self.scroll_layout.addWidget(event_frame)
+
+                        self.create_notification(event_datetime, event_details[-1], 10)  # Default reminder 10 minutes before
+                except Exception as e:
+                    print(f"Error processing event: {event}, Error: {e}")  # Debugging statement
 
         else:
             no_event_label = QLabel("No upcoming events found.", self.scroll_content)
@@ -311,13 +317,17 @@ class CalendarWidget(QWidget):
 
         # Parse the event string to extract all details
         event_parts = event.split(": ")
+        if len(event_parts) < 2:
+            print(f"Skipping event due to insufficient details: {event}")  # Debugging statement
+            return
+
         event_id = event_parts[0]
         event_start = datetime.datetime.fromisoformat(event_parts[1].replace("Z", "+00:00"))
         event_title = event_parts[-1]
         event_end = event_start + datetime.timedelta(hours=1)  # Default to 1 hour if end time not provided
         if len(event_parts) > 3:
             event_end = datetime.datetime.fromisoformat(event_parts[3].replace("Z", "+00:00"))
-        
+
         duration = event_end - event_start
 
         # Create labels for each piece of information

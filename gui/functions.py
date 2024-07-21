@@ -21,6 +21,8 @@ from calendar_widget import CalendarWidget
 
 from focus import FocusTimer
 
+from email_management import EmailManager
+
 # Registering the functions
 funcs = [get_current_location, get_weather, get_news_updates]
 
@@ -51,6 +53,7 @@ class myAssistant(QWidget):
         self.google_connected = False
         # Focus Mode
         self.focus_timer = FocusTimer()
+        self.email_manager = EmailManager()  
 
     def initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.SubWindow)
@@ -175,6 +178,7 @@ class myAssistant(QWidget):
         display_screen_time = contextMenu.addAction("Display Screen Time")
         connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
         show_calendar = contextMenu.addAction("Show Calendar")
+        email_management = contextMenu.addAction("Email Management")
         focus_mode = contextMenu.addAction("Focus Mode")
         #upcoming_events = contextMenu.addAction("Show Upcoming Events")
         about = contextMenu.addAction("About")
@@ -203,6 +207,8 @@ class myAssistant(QWidget):
                 self.connect_to_google_account()
         elif action == show_calendar:
             self.show_calendar_widget()
+        elif action == email_management:
+            self.show_email_management()
         elif action == focus_mode:
             self.show_focus_timer()
         #elif action == upcoming_events:
@@ -281,6 +287,9 @@ class myAssistant(QWidget):
     
     def show_focus_timer(self):  # Method to show the Focus Timer
         self.focus_timer.show()
+
+    def show_email_management(self):
+        self.email_manager.show()
 
 
 def addOnePet():
