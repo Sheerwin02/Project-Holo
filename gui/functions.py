@@ -234,26 +234,17 @@ class myAssistant(QWidget):
         self.sticky_note_dialog.show()
     
     def chatWithAssistant(self):
-        user_input, ok = QInputDialog.getText(self, 'Chat with Assistant', 'Enter your message:')
-        if ok and user_input:
-            self.display_chat_bubble(f"You: {user_input}")
-            self.chat_thread = ChatThread(assistant_id, thread_id, user_input)
-            self.chat_thread.response_received.connect(self.handle_response)
-            self.chat_thread.start()
+        self.chat_dialog = ChatDialog(assistant_id, thread_id)
+        self.chat_dialog.response_received.connect(self.display_chat_bubble)
+        self.chat_dialog.exec()
 
     def display_chat_bubble(self, text):
         self.chat_bubble.setText(text)
         self.chat_bubble.adjustSize()
         self.chat_bubble.show()
-        QTimer.singleShot(25000, self.chat_bubble.hide)  # Hide the chat bubble after 25 seconds
+        QTimer.singleShot(40000, self.chat_bubble.hide)  # Hide the chat bubble after 40 seconds
 
-    def handle_response(self, response):
-        self.display_chat_bubble(f"Assistant: {response}")
-    
     ## Screen Time Tracker
-    # def show_screen_time(self, formatted_time):
-    #     self.display_chat_bubble(f"Current screen time: {formatted_time}")
-    
     def toggle_screen_time_reminder(self):
         if not self.screen_time_tracker.reminder_enabled:
             interval, ok = QInputDialog.getInt(self, 'Set Rest Reminder Interval', 'Enter rest reminder interval in minutes:', value=60, min=1)
@@ -315,8 +306,3 @@ def delOnePet():
 def aboutInfo():
     webbrowser.open_new_tab("https://github.com/luxingwen/desktop-pet-miku")
 
-
-
-# def chatWithAssistant():
-#     chat_dialog = ChatDialog(assistant_id, thread_id)
-#     chat_dialog.exec()
