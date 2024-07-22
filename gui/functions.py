@@ -242,7 +242,7 @@ class myAssistant(QWidget):
         self.chat_bubble.setText(text)
         self.chat_bubble.adjustSize()
         self.chat_bubble.show()
-        QTimer.singleShot(40000, self.chat_bubble.hide)  # Hide the chat bubble after 40 seconds
+        QTimer.singleShot(50000, self.chat_bubble.hide)  # Hide the chat bubble after 50 seconds
 
     ## Screen Time Tracker
     def toggle_screen_time_reminder(self):
