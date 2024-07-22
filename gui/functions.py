@@ -51,6 +51,7 @@ class myAssistant(QWidget):
         self.initUI()
         self.screen_time_update_timer = QTimer()
         self.google_connected = False
+        self.screen_time_displayed = False
         # Focus Mode
         self.focus_timer = FocusTimer()
         self.email_manager = EmailManager()  
@@ -175,7 +176,7 @@ class myAssistant(QWidget):
         sticky_note = contextMenu.addAction("Sticky Note")
         to_do_list = contextMenu.addAction("To-Do List")
         toggle_reminder = contextMenu.addAction("Toggle Reminder")
-        display_screen_time = contextMenu.addAction("Display Screen Time")
+        display_screen_time = contextMenu.addAction("Hide Screen Time" if self.screen_time_displayed else "Display Screen Time")  
         connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
         show_calendar = contextMenu.addAction("Show Calendar")
         email_management = contextMenu.addAction("Email Management")
@@ -197,8 +198,8 @@ class myAssistant(QWidget):
             self.to_do_list_dialog.show()
         elif action == toggle_reminder:
             self.toggle_screen_time_reminder()
-        elif action == display_screen_time:  # Handle the new option
-            self.screen_time_update_timer.timeout.connect(self.update_screen_time_from_tracker)
+        elif action == display_screen_time:
+            self.toggle_screen_time_display() 
             self.screen_time_update_timer.start(1000) # Update every second
         elif action == connect_google:
             if self.google_connected:
@@ -217,6 +218,16 @@ class myAssistant(QWidget):
             aboutInfo()
         elif action == quit:
             os._exit(0)
+    
+    def toggle_screen_time_display(self):
+        if self.screen_time_displayed:
+            self.screen_time_label.hide()
+            self.screen_time_update_timer.stop()
+            self.screen_time_update_timer.timeout.disconnect(self.update_screen_time_from_tracker)
+        else:
+            self.screen_time_update_timer.timeout.connect(self.update_screen_time_from_tracker)
+            self.screen_time_update_timer.start(1000) # Update every second
+        self.screen_time_displayed = not self.screen_time_displayed
 
     def open_sticky_note(self):
         self.sticky_note_dialog = StickyNoteDialog()
