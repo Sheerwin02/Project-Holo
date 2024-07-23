@@ -181,7 +181,6 @@ class myAssistant(QWidget):
         show_calendar = contextMenu.addAction("Show Calendar")
         email_management = contextMenu.addAction("Email Management")
         focus_mode = contextMenu.addAction("Focus Mode")
-        #upcoming_events = contextMenu.addAction("Show Upcoming Events")
         about = contextMenu.addAction("About")
         quit = contextMenu.addAction("Quit")
 
@@ -212,8 +211,6 @@ class myAssistant(QWidget):
             self.show_email_management()
         elif action == focus_mode:
             self.show_focus_timer()
-        #elif action == upcoming_events:
-            #self.show_upcoming_events()
         elif action == about:
             aboutInfo()
         elif action == quit:
@@ -236,13 +233,13 @@ class myAssistant(QWidget):
     def chatWithAssistant(self):
         self.chat_dialog = ChatDialog(assistant_id, thread_id)
         self.chat_dialog.response_received.connect(self.display_chat_bubble)
-        self.chat_dialog.exec()
+        self.chat_dialog.show()
 
     def display_chat_bubble(self, text):
         self.chat_bubble.setText(text)
         self.chat_bubble.adjustSize()
         self.chat_bubble.show()
-        QTimer.singleShot(50000, self.chat_bubble.hide)  # Hide the chat bubble after 50 seconds
+        QTimer.singleShot(55000, self.chat_bubble.hide)  # Hide the chat bubble after 55 seconds
 
     ## Screen Time Tracker
     def toggle_screen_time_reminder(self):
