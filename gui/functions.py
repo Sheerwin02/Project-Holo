@@ -1,9 +1,11 @@
 import sys
+
 sys.path.append('../server')
 
 import os
 import random
 import webbrowser
+import hashlib
 from PyQt6.QtWidgets import QApplication, QWidget, QMenu, QSystemTrayIcon, QLabel, QMessageBox, QVBoxLayout, QInputDialog
 from PyQt6.QtGui import QIcon, QImage, QPixmap, QCursor
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
@@ -16,12 +18,17 @@ from to_do_list import ToDoListDialog
 from assistant import create_assistant, create_thread, get_completion
 
 # from GoogleOAuth import GoogleOAuth
-from GoogleOAuth import connect_to_google_account, get_upcoming_events
+from GoogleOAuth import connect_to_google_account, get_user_email, get_upcoming_events
 from calendar_widget import CalendarWidget
 
 from focus import FocusTimer
 
 from email_management import EmailManager
+
+from goal_setting import GoalSettingDialog
+
+from httplib2 import Credentials
+from googleapiclient.discovery import build
 
 # Registering the functions
 funcs = [get_current_location, get_weather, get_news_updates]
@@ -175,6 +182,7 @@ class myAssistant(QWidget):
         chat = contextMenu.addAction("Chat")
         sticky_note = contextMenu.addAction("Sticky Note")
         to_do_list = contextMenu.addAction("To-Do List")
+        set_goals = contextMenu.addAction("Set Goals")  #
         toggle_reminder = contextMenu.addAction("Toggle Reminder")
         display_screen_time = contextMenu.addAction("Hide Screen Time" if self.screen_time_displayed else "Display Screen Time")  
         connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
@@ -195,6 +203,8 @@ class myAssistant(QWidget):
             self.open_sticky_note()
         elif action == to_do_list:
             self.to_do_list_dialog.show()
+        elif action == set_goals:
+            self.open_goal_setting() 
         elif action == toggle_reminder:
             self.toggle_screen_time_reminder()
         elif action == display_screen_time:
@@ -226,6 +236,18 @@ class myAssistant(QWidget):
             self.screen_time_update_timer.start(1000) # Update every second
         self.screen_time_displayed = not self.screen_time_displayed
 
+    def open_goal_setting(self):
+        user_email = get_user_email()
+        if not user_email:
+            QMessageBox.warning(self, "Error", "Failed to retrieve user email.")
+            return
+        user_id = self.generate_user_id(user_email)
+        if hasattr(self, 'goal_dialog') and self.goal_dialog.isVisible():
+            self.goal_dialog.raise_()
+        else:
+            self.goal_dialog = GoalSettingDialog(user_id)
+            self.goal_dialog.show()
+            
     def open_sticky_note(self):
         self.sticky_note_dialog = StickyNoteDialog()
         self.sticky_note_dialog.show()
@@ -289,7 +311,10 @@ class myAssistant(QWidget):
 
     def show_email_management(self):
         self.email_manager.show()
-
+    
+    def generate_user_id(self, email):
+        """Generate a user ID based on the email address."""
+        return hash(email)
 
 def addOnePet():
     pets.append(myAssistant())

@@ -15,9 +15,11 @@ logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s 
 
 # Define the scope
 SCOPES = [
+    'openid',
     'https://www.googleapis.com/auth/calendar',
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send'
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/userinfo.email'
 ]
 
 def connect_to_google_account():
@@ -259,3 +261,69 @@ def delete_email(email_id):
             logging.error(f"Error deleting email: {e}")
             return f"Error deleting email: {e}"
     return "Failed to build Gmail service."
+
+# AI Scheudler functions
+def get_free_busy(start_time, end_time):
+    service = get_calendar_service()
+    body = {
+        "timeMin": start_time,
+        "timeMax": end_time,
+        "items": [{"id": 'primary'}]
+    }
+    try:
+        freebusy_result = service.freebusy().query(body=body).execute()
+        return freebusy_result.get('calendars').get('primary').get('busy')
+    except Exception as e:
+        logging.error(f"Error retrieving free/busy information: {e}")
+        return []
+
+def schedule_event(summary, description, start_time, end_time):
+    return add_event(summary, start_time, end_time, description)
+
+def get_google_credentials():
+    logging.debug("Entering get_google_credentials()")
+    creds = None
+    token_path = 'token.json'
+    credentials_path = 'credentials.json'
+    
+    # Load existing credentials
+    if os.path.exists(token_path):
+        logging.debug(f"Loading existing credentials from {token_path}")
+        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        logging.debug("No valid credentials found")
+        if creds and creds.expired and creds.refresh_token:
+            logging.debug("Refreshing expired credentials")
+            creds.refresh(Request())
+        else:
+            logging.debug(f"Starting OAuth flow using {credentials_path}")
+            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
+            creds = flow.run_local_server(port=0)
+        
+        # Save the credentials for the next run
+        with open(token_path, 'w') as token:
+            logging.debug(f"Saving credentials to {token_path}")
+            token.write(creds.to_json())
+    
+    logging.debug("Exiting get_google_credentials()")
+    return creds
+
+def get_user_email():
+    logging.debug("Entering get_user_email()")
+    creds = get_google_credentials()
+    
+    try:
+        logging.debug("Building OAuth2 service")
+        service = build('oauth2', 'v2', credentials=creds)
+        logging.debug("Getting user info")
+        user_info = service.userinfo().get().execute()
+        email = user_info.get('email')
+        logging.debug(f"User email: {email}")
+        return email
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        return None
+
+
