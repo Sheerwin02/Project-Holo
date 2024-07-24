@@ -1,11 +1,13 @@
+import base64
 import os
 import re
 import json
 import time
 from openai import OpenAI
 from dotenv import load_dotenv
-from utils import get_current_location, get_weather, get_news_updates
-
+import requests
+from utils import get_current_location, get_weather, get_news_updates 
+import logging
 
 # Registering the functions
 #funcs = [get_current_location, get_weather, get_news_updates]
@@ -68,13 +70,13 @@ def create_assistant(
             for file in files:
                 file = client.files.create(
                     file=open(file, "rb"),
-                    purpose='assistants'
+                    purpose='user_data'  # Change purpose to a valid option
                 )
                 file_ids.append(file.id)
         elif isinstance(files, str):
             file = client.files.create(
                 file=open(files, "rb"),
-                purpose='assistants'
+                purpose='user_data'  # Change purpose to a valid option
             )
             file_ids.append(file.id)
 
@@ -215,3 +217,128 @@ def get_completion(assistant_id, thread_id, user_input, funcs, debug=False):
             if debug:
                 print(message)
             return message
+        
+# AI Scheduler 
+def suggest_time_for_event(assistant_id, thread_id, event_description, duration_minutes, funcs, debug=False):
+    prompt = f"""
+    I need to schedule an event: {event_description}.
+    The event should last for {duration_minutes} minutes.
+    Please suggest an optimal time based on my availability.
+    """
+    return get_completion(assistant_id, thread_id, prompt, funcs, debug)
+
+# Function to upload file and analyze it
+def analyze_file(assistant_id, thread_id, file_path, funcs, debug=False):
+    # Upload the file
+    try:
+        file = client.files.create(
+            file=open(file_path, "rb"),
+            purpose='user_data'  # Change purpose to a valid option
+        )
+        file_id = file.id
+
+        if debug:
+            logging.info(f"File uploaded successfully with ID: {file_id}")
+    except Exception as e:
+        logging.error(f"Error uploading file: {e}")
+        return f"Error uploading file: {e}"
+
+    # Create message with the uploaded file
+    try:
+        message = client.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",
+            content="Please analyze the attached file.",
+            attachments=[{
+                "file_id": file_id,
+                "tools": [{"type": "file_search"}]  # Add the required tools parameter with type as an object
+            }]
+        )
+
+        run = client.beta.threads.runs.create(
+            thread_id=thread_id,
+            assistant_id=assistant_id,
+        )
+
+        # Poll for the run status
+        while True:
+            run = client.beta.threads.runs.retrieve(
+                thread_id=thread_id,
+                run_id=run.id
+            )
+            if run.status == "requires_action":
+                tool_calls = run.required_action.submit_tool_outputs.tool_calls
+                tool_outputs = []
+
+                for tool_call in tool_calls:
+                    func = next(iter([func for func in funcs if func.__name__ == tool_call.function.name]))
+                    output = func(**json.loads(tool_call.function.arguments))
+                    tool_outputs.append({
+                        "tool_call_id": tool_call.id,
+                        "output": json.dumps(output)
+                    })
+
+                run = client.beta.threads.runs.submit_tool_outputs(
+                    thread_id=thread_id,
+                    run_id=run.id,
+                    tool_outputs=tool_outputs
+                )
+
+            elif run.status == "completed":
+                messages = client.beta.threads.messages.list(
+                    thread_id=thread_id
+                )
+                message = messages.data[-1].content
+                return message
+
+            elif run.status == "failed":
+                raise Exception(f"Run failed with error: {run.last_error}")
+
+            time.sleep(1)
+
+    except Exception as e:
+        logging.error(f"Error analyzing file: {e}")
+        return f"Error analyzing file: {e}"
+
+# Function to analyze the image
+def analyze_image(file_path, debug=False):
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {OPENAI_API_KEY}"
+    }
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Please give feedback on what's you seeing and chat with the user like an human assistant, your reply is short and people will enjoy chatting with you."
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{file_path}"
+                        }
+                    }
+                ]
+            }
+        ],
+        "max_tokens": 300
+    }
+
+    try:
+        response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+        response_json = response.json()
+
+        if debug:
+            logging.info(f"OpenAI API response: {response_json}")
+
+        message_content = response_json['choices'][0]['message']['content']
+        return message_content
+
+    except Exception as e:
+        logging.error(f"Error analyzing image: {e}")
+        return f"Error analyzing image: {e}"

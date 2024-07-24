@@ -6,6 +6,7 @@ import os
 import random
 import webbrowser
 import hashlib
+import logging
 from PyQt6.QtWidgets import QApplication, QWidget, QMenu, QSystemTrayIcon, QLabel, QMessageBox, QVBoxLayout, QInputDialog
 from PyQt6.QtGui import QIcon, QImage, QPixmap, QCursor
 from PyQt6.QtCore import Qt, QTimer, QThread, pyqtSignal
@@ -15,7 +16,7 @@ from chat_dialog import ChatDialog
 from sticky_note_dialog import StickyNoteDialog
 from screen_time_tracker import ScreenTimeTracker
 from to_do_list import ToDoListDialog
-from assistant import create_assistant, create_thread, get_completion
+from assistant import create_assistant, create_thread, get_completion, analyze_file
 
 # from GoogleOAuth import GoogleOAuth
 from GoogleOAuth import connect_to_google_account, get_user_email, get_upcoming_events
@@ -29,6 +30,8 @@ from goal_setting import GoalSettingDialog
 
 from httplib2 import Credentials
 from googleapiclient.discovery import build
+
+from ocr_feedback import OCRThread
 
 # Registering the functions
 funcs = [get_current_location, get_weather, get_news_updates]
@@ -59,6 +62,8 @@ class myAssistant(QWidget):
         self.screen_time_update_timer = QTimer()
         self.google_connected = False
         self.screen_time_displayed = False
+        self.ocr_feedback_enabled = False  # Add this line
+        self.ocr_feedback_timer = QTimer()
         # Focus Mode
         self.focus_timer = FocusTimer()
         self.email_manager = EmailManager()  
@@ -182,8 +187,9 @@ class myAssistant(QWidget):
         chat = contextMenu.addAction("Chat")
         sticky_note = contextMenu.addAction("Sticky Note")
         to_do_list = contextMenu.addAction("To-Do List")
-        set_goals = contextMenu.addAction("Set Goals")  #
+        set_goals = contextMenu.addAction("Set Goals") 
         toggle_reminder = contextMenu.addAction("Toggle Reminder")
+        toggle_ocr_feedback = contextMenu.addAction("Disable OCR Feedback" if self.ocr_feedback_enabled else "Enable OCR Feedback")
         display_screen_time = contextMenu.addAction("Hide Screen Time" if self.screen_time_displayed else "Display Screen Time")  
         connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
         show_calendar = contextMenu.addAction("Show Calendar")
@@ -207,6 +213,8 @@ class myAssistant(QWidget):
             self.open_goal_setting() 
         elif action == toggle_reminder:
             self.toggle_screen_time_reminder()
+        elif action == toggle_ocr_feedback:
+            self.toggle_ocr_feedback()
         elif action == display_screen_time:
             self.toggle_screen_time_display() 
             self.screen_time_update_timer.start(1000) # Update every second
@@ -226,6 +234,29 @@ class myAssistant(QWidget):
         elif action == quit:
             os._exit(0)
     
+    def toggle_ocr_feedback(self):
+        self.ocr_feedback_enabled = not self.ocr_feedback_enabled
+        if self.ocr_feedback_enabled:
+            self.start_ocr_feedback()
+        else:
+            self.stop_ocr_feedback()
+        QMessageBox.information(self, "OCR Feedback", "OCR Feedback is now " + ("enabled" if self.ocr_feedback_enabled else "disabled"))
+
+    def start_ocr_feedback(self):
+        logging.info("Starting OCR feedback thread.")
+        self.ocr_feedback_timer.timeout.connect(self.run_ocr_feedback)
+        self.ocr_feedback_timer.start(10000)  # Run every 10 seconds
+
+    def stop_ocr_feedback(self):
+        self.ocr_feedback_timer.stop()
+        logging.info("OCR feedback stopped.")
+
+    def run_ocr_feedback(self):
+        self.ocr_thread = OCRThread()
+        self.ocr_thread.feedback_received.connect(self.display_chat_bubble)
+        self.ocr_thread.start()
+
+
     def toggle_screen_time_display(self):
         if self.screen_time_displayed:
             self.screen_time_label.hide()
@@ -327,4 +358,3 @@ def delOnePet():
 
 def aboutInfo():
     webbrowser.open_new_tab("https://github.com/luxingwen/desktop-pet-miku")
-
