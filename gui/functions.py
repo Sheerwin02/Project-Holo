@@ -64,7 +64,8 @@ class myAssistant(QWidget):
         self.screen_time_update_timer = QTimer()
         self.google_connected = False
         self.screen_time_displayed = False
-        self.ocr_feedback_enabled = False  # Add this line
+        self.ocr_feedback_enabled = False 
+        self.user_id = None
         self.ocr_feedback_timer = QTimer()
         # Focus Mode
         self.focus_timer = FocusTimer()
@@ -109,7 +110,7 @@ class myAssistant(QWidget):
         self.screen_time_tracker.screen_time_exceeded.connect(self.remind_to_rest)
         self.screen_time_tracker.screen_time_updated.connect(self.update_screen_time_label)
 
-        self.to_do_list_dialog = ToDoListDialog()
+        # self.to_do_list_dialog = ToDoListDialog()
 
         self.calendar_widget = CalendarWidget() 
 
@@ -213,7 +214,7 @@ class myAssistant(QWidget):
         elif action == sticky_note:
             self.open_sticky_note()
         elif action == to_do_list:
-            self.to_do_list_dialog.show()
+            self.open_todo_list() 
         elif action == set_goals:
             self.open_goal_setting() 
         elif action == toggle_reminder:
@@ -283,11 +284,25 @@ class myAssistant(QWidget):
         else:
             self.goal_dialog = GoalSettingDialog(user_id)
             self.goal_dialog.show()
-
-            
+          
     def open_sticky_note(self):
-        self.sticky_note_dialog = StickyNoteDialog()
+        user_email = get_user_email()
+        if not user_email:
+            QMessageBox.warning(self, "Error", "Failed to retrieve user email. Please Connect To Your Google Account.")
+            return
+        user_id = self.generate_user_id(user_email)
+        self.sticky_note_dialog = StickyNoteDialog(self.user_id)
         self.sticky_note_dialog.show()
+    
+    def open_todo_list(self):
+        if not self.user_id:
+            user_email = get_user_email()
+            if not user_email:
+                QMessageBox.warning(self, "Error", "Failed to retrieve user email. Please Connect To Your Google Account.")
+                return
+            self.user_id = self.generate_user_id(user_email)
+        self.to_do_list_dialog = ToDoListDialog(self.user_id)
+        self.to_do_list_dialog.show()
     
     def chatWithAssistant(self):
         self.chat_dialog = ChatDialog(assistant_id, thread_id)
@@ -379,13 +394,17 @@ class myAssistant(QWidget):
     def connect_to_google_account(self):
         message, connected = connect_to_google_account()
         self.google_connected = connected
+        if connected:
+            user_email = get_user_email()
+            self.user_id = self.generate_user_id(user_email)
         QMessageBox.information(self, "Google Account Connection", message)
     
     def disconnect_google_account(self):
         os.remove('token.json')
         self.google_connected = False
+        self.user_id = None
         QMessageBox.information(self, "Google Account Connection", "Google account disconnected successfully.")
-    
+
     def show_upcoming_events(self):
         events = get_upcoming_events()
         QMessageBox.information(self, "Upcoming Events", events)

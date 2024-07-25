@@ -8,8 +8,9 @@ logging.basicConfig(filename='app.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 class StickyNoteDialog(QDialog):
-    def __init__(self):
+    def __init__(self, user_id):
         super().__init__()
+        self.user_id = user_id
         self.setWindowTitle("Sticky Notes")
         self.setGeometry(100, 100, 400, 300)
         self.layout = QVBoxLayout()
@@ -49,16 +50,17 @@ class StickyNoteDialog(QDialog):
     def load_notes_list(self):
         try:
             self.notes_list.clear()
-            notes = database.get_all_notes()
+            notes = database.get_all_notes(self.user_id)
             for note_id, title in notes:
                 self.notes_list.addItem(f"{note_id}: {title}")
             logging.info("Notes list loaded successfully.")
         except Exception as e:
             logging.error(f"Error loading notes list: {e}")
 
+
     def display_note(self, item):
         note_id = int(item.text().split(":")[0])
-        note = database.load_note_from_db(note_id)
+        note = database.load_note_from_db(self.user_id, note_id)
         if note:
             title, content = note
             self.title_input.setText(title)
@@ -66,11 +68,11 @@ class StickyNoteDialog(QDialog):
             logging.info(f"Displayed note with ID: {note_id}")
 
     def save_note_to_db(self, title, content):
-        existing_notes = database.get_all_notes()
+        existing_notes = database.get_all_notes(self.user_id)
         for note_id, note_title in existing_notes:
             if note_title == title:
-                database.delete_note_from_db(note_id)  # Delete existing note with same title
-        database.save_note_to_db(title, content)
+                database.delete_note_from_db(self.user_id, note_id)  # Delete existing note with same title
+        database.save_note_to_db(self.user_id, title, content)
 
     def save_note(self):
         title = self.title_input.text()
@@ -92,7 +94,7 @@ class StickyNoteDialog(QDialog):
             return
 
         note_id = int(selected_items[0].text().split(":")[0])
-        database.delete_note_from_db(note_id)
+        database.delete_note_from_db(self.user_id, note_id)
         QMessageBox.information(self, "Note Deleted", "Your note has been deleted successfully.")
         self.load_notes_list()
         self.title_input.clear()
@@ -107,12 +109,13 @@ class StickyNoteDialog(QDialog):
             return
 
         note_id = int(selected_items[0].text().split(":")[0])
-        note = database.load_note_from_db(note_id)
+        note = database.load_note_from_db(self.user_id, note_id)
         if note:
             title, content = note
             self.title_input.setText(title)
             self.note_display.setPlainText(content)
             logging.info(f"Note loaded with ID: {note_id}")
+
 
     def closeEvent(self, event):
         self.hide()

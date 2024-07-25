@@ -13,8 +13,9 @@ from styles import style_sheet
 logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ToDoListDialog(QDialog):
-    def __init__(self):
+    def __init__(self, user_id):
         super().__init__()
+        self.user_id = user_id  # Store the user_id
         self.setWindowTitle("To-Do List")
         self.setGeometry(100, 100, 800, 600)
         self.setWindowIcon(QIcon('icons/todo.png'))
@@ -102,7 +103,7 @@ class ToDoListDialog(QDialog):
     def load_tasks_list(self):
         try:
             self.tasks_list.clear()
-            tasks = database.get_all_tasks(show_completed=self.show_completed_checkbox.isChecked())
+            tasks = database.get_all_tasks(self.user_id, show_completed=self.show_completed_checkbox.isChecked())
             
             for task_id, title, due_date, priority, description, completed in tasks:
                 print(f"Loading task: ID={task_id}, Title={title}")
@@ -130,7 +131,7 @@ class ToDoListDialog(QDialog):
         task_widget = self.tasks_list.itemWidget(item)
         if task_widget:
             task_id = task_widget.task_id
-            task = database.load_task_from_db(task_id)
+            task = database.load_task_from_db(self.user_id, task_id)
             if task:
                 title, due_date_str, priority, description, recurring, completed = task
                 self.title_input.setText(title)
@@ -145,11 +146,11 @@ class ToDoListDialog(QDialog):
             print("No task widget found for the selected item")  # Debug print
 
     def save_task_to_db(self, title, due_date, priority, description, recurring):
-        existing_tasks = database.get_all_tasks(show_completed=True)
+        existing_tasks = database.get_all_tasks(self.user_id, show_completed=True)
         for task_id, task_title, _, _, _, _ in existing_tasks:  # Unpack the correct number of values
             if task_title == title:
-                database.delete_task_from_db(task_id)  # Delete existing task with same title
-        database.save_task_to_db(title, due_date, priority, description, recurring)
+                database.delete_task_from_db(self.user_id, task_id)  # Delete existing task with same title
+        database.save_task_to_db(self.user_id, title, due_date, priority, description, recurring)
 
     def add_task(self):
         title = self.title_input.text()
@@ -186,7 +187,7 @@ class ToDoListDialog(QDialog):
         description = self.description_input.toPlainText()
         recurring = self.recurring_input.currentText()
         if title:
-            database.delete_task_from_db(task_id)
+            database.delete_task_from_db(self.user_id, task_id)
             self.save_task_to_db(title, due_date, priority, description, recurring)
             QMessageBox.information(self, "Task Edited", "Your task has been edited successfully.")
             self.load_tasks_list()
@@ -212,7 +213,7 @@ class ToDoListDialog(QDialog):
         reply = QMessageBox.question(self, "Delete Task", "Are you sure you want to delete this task?",
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            database.delete_task_from_db(task_id)
+            database.delete_task_from_db(self.user_id, task_id)
             QMessageBox.information(self, "Task Deleted", "Your task has been deleted successfully.")
             self.load_tasks_list()
             self.title_input.clear()
@@ -231,14 +232,14 @@ class ToDoListDialog(QDialog):
 
     def check_reminders(self):
         current_time = QDateTime.currentDateTime()
-        tasks = database.get_all_tasks(show_completed=True)
+        tasks = database.get_all_tasks(self.user_id, show_completed=True)
         for task_id, title, due_date_str, priority, description, completed in tasks:
             if not due_date_str:
                 continue
             due_datetime = QDateTime.fromString(due_date_str, "yyyy-MM-dd HH:mm")
             if current_time >= due_datetime and not completed:
                 self.show_notification(title)
-                database.mark_task_as_notified(task_id)
+                database.mark_task_as_notified(self.user_id, task_id)
                 if self.recurring_input.currentText() != "None":
                     self.handle_recurring_task(task_id, due_datetime)
 
@@ -252,7 +253,7 @@ class ToDoListDialog(QDialog):
             new_due_date = due_datetime.addMonths(1)
         else:
             return
-        database.update_task_due_date(task_id, new_due_date.toString("yyyy-MM-dd HH:mm"))
+        database.update_task_due_date(self.user_id, task_id, new_due_date.toString("yyyy-MM-dd HH:mm"))
 
     def show_notification(self, task_title):
         tray_icon = QSystemTrayIcon(self)
@@ -285,7 +286,7 @@ class ToDoListDialog(QDialog):
 
         task_widget = self.tasks_list.itemWidget(selected_items[0])
         task_id = task_widget.task_id
-        database.mark_task_as_completed(task_id)
+        database.mark_task_as_completed(self.user_id, task_id)
         QMessageBox.information(self, "Task Completed", "Your task has been marked as completed.")
         self.load_tasks_list()
         self.title_input.clear()
