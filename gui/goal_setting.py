@@ -323,6 +323,8 @@ class DashboardWidget(QWidget):
         self.goal_setting = goal_setting
         self.user_id = user_id
         self.init_ui()
+        self.load_goals()
+        self.load_upcoming_goals()
 
     def init_ui(self):
         self.layout = QVBoxLayout(self)
@@ -555,6 +557,7 @@ class GoalSettingDialog(QDialog):
         self.setWindowTitle("Goal Setting Application")
         self.setGeometry(100, 100, 800, 600)
         self.init_ui()
+        self.load_goals()
 
     def init_ui(self):
         layout = QVBoxLayout()

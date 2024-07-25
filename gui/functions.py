@@ -283,6 +283,7 @@ class myAssistant(QWidget):
         else:
             self.goal_dialog = GoalSettingDialog(user_id)
             self.goal_dialog.show()
+
             
     def open_sticky_note(self):
         self.sticky_note_dialog = StickyNoteDialog()
@@ -400,8 +401,8 @@ class myAssistant(QWidget):
         self.email_manager.show()
     
     def generate_user_id(self, email):
-        """Generate a user ID based on the email address."""
-        return hash(email)
+        """Generate a consistent user ID based on the email address using SHA-256."""
+        return hashlib.sha256(email.encode()).hexdigest()
 
 def addOnePet():
     pets.append(myAssistant())
