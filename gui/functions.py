@@ -33,6 +33,8 @@ from googleapiclient.discovery import build
 
 from ocr_feedback import OCRThread
 
+from reminder import ReminderSettingsDialog
+
 # Registering the functions
 funcs = [get_current_location, get_weather, get_news_updates]
 
@@ -67,6 +69,9 @@ class myAssistant(QWidget):
         # Focus Mode
         self.focus_timer = FocusTimer()
         self.email_manager = EmailManager()  
+        self.screen_time_tracker = ScreenTimeTracker()
+        self.screen_time_tracker.screen_time_exceeded.connect(self.remind_to_rest)
+        self.screen_time_tracker.screen_time_updated.connect(self.update_screen_time_label)
 
     def initUI(self):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.SubWindow)
@@ -188,7 +193,7 @@ class myAssistant(QWidget):
         sticky_note = contextMenu.addAction("Sticky Note")
         to_do_list = contextMenu.addAction("To-Do List")
         set_goals = contextMenu.addAction("Set Goals") 
-        toggle_reminder = contextMenu.addAction("Toggle Reminder")
+        toggle_reminder = contextMenu.addAction("Toggle Reminder" if not self.screen_time_tracker.reminder_enabled else "Disable Reminder")
         toggle_ocr_feedback = contextMenu.addAction("Disable OCR Feedback" if self.ocr_feedback_enabled else "Enable OCR Feedback")
         display_screen_time = contextMenu.addAction("Hide Screen Time" if self.screen_time_displayed else "Display Screen Time")  
         connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
@@ -297,23 +302,74 @@ class myAssistant(QWidget):
     ## Screen Time Tracker
     def toggle_screen_time_reminder(self):
         if not self.screen_time_tracker.reminder_enabled:
-            interval, ok = QInputDialog.getInt(self, 'Set Rest Reminder Interval', 'Enter rest reminder interval in minutes:', value=60, min=1)
-            if ok:
+            dialog = ReminderSettingsDialog(self)
+            if dialog.exec():
+                interval = dialog.interval_spinbox.value()
+                rest_duration = dialog.duration_spinbox.value()
+                custom_message = dialog.message_input.text()
+                
                 self.screen_time_tracker.set_reminder_interval(interval * 60)  # Convert minutes to seconds
+                self.screen_time_tracker.set_rest_duration(rest_duration * 60)  # Convert minutes to seconds
+                self.screen_time_tracker.set_custom_message(custom_message)
                 self.screen_time_tracker.toggle_reminder(True)
-                QMessageBox.information(self, "Reminder Enabled", f"Rest reminder set for {interval} minutes.")
+                
+                QMessageBox.information(self, "Reminder Enabled", 
+                    f"Rest reminder set for every {interval} minutes with {rest_duration} minutes rest.")
+            else:
+                # User cancelled the dialog, don't enable the reminder
+                return
         else:
+            # Disable the reminder
+            self.disable_reminder()
+
+    def disable_reminder(self):
+        confirm = QMessageBox.question(self, "Disable Reminder", 
+                                       "Are you sure you want to disable the screen time reminder?",
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        
+        if confirm == QMessageBox.StandardButton.Yes:
             self.screen_time_tracker.toggle_reminder(False)
-            QMessageBox.information(self, "Reminder Disabled", "Rest reminder has been disabled.")
+            QMessageBox.information(self, "Reminder Disabled", "Screen time reminder has been disabled.")
 
     def remind_to_rest(self):
-        self.display_chat_bubble("Time to take a break! Rest for a while.")
-        QMessageBox.information(self, "Rest Reminder", "You have been working for an hour. It's time to take a 5-minute break.")
-    
+        custom_message = self.screen_time_tracker.get_custom_message()
+        rest_duration = self.screen_time_tracker.get_rest_duration() // 60  # Convert seconds to minutes
+        
+        self.display_chat_bubble(custom_message)
+        
+        reminder_dialog = QMessageBox(self)
+        reminder_dialog.setWindowTitle("Rest Reminder")
+        reminder_dialog.setText(f"{custom_message}\nIt's time to take a {rest_duration}-minute break.")
+        reminder_dialog.setIcon(QMessageBox.Icon.Information)
+        
+        snooze_button = reminder_dialog.addButton("Snooze (5 min)", QMessageBox.ButtonRole.ActionRole)
+        take_break_button = reminder_dialog.addButton("Take Break", QMessageBox.ButtonRole.AcceptRole)
+        reminder_dialog.setDefaultButton(take_break_button)
+        
+        reminder_dialog.exec()
+        
+        if reminder_dialog.clickedButton() == snooze_button:
+            QTimer.singleShot(5 * 60 * 1000, self.remind_to_rest)  # Snooze for 5 minutes
+        else:
+            self.start_break_timer(rest_duration)
+
+    def start_break_timer(self, duration):
+        self.break_timer = QTimer(self)
+        self.break_timer.timeout.connect(self.end_break)
+        self.break_timer.start(duration * 60 * 1000)  # Convert minutes to milliseconds
+        
+        self.display_chat_bubble(f"Enjoy your {duration}-minute break!")
+
+    def end_break(self):
+        self.break_timer.stop()
+        self.display_chat_bubble("Break time is over. Back to work!")
+        QMessageBox.information(self, "Break Ended", "Your break time is over. Feel refreshed and ready to continue?")
+
     def update_screen_time_label(self, formatted_time):
-        self.screen_time_label.setText(f"Screen Time: {formatted_time}")
-        self.screen_time_label.adjustSize()
-        self.screen_time_label.show()
+        if hasattr(self, 'screen_time_label'):
+            self.screen_time_label.setText(f"Screen Time: {formatted_time}")
+            self.screen_time_label.adjustSize()
+            self.screen_time_label.show()
 
     def update_screen_time_from_tracker(self):
         formatted_time = self.screen_time_tracker.get_current_screen_time()

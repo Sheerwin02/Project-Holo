@@ -70,6 +70,18 @@ class ScreenTimeTracker(QObject):
     def get_current_screen_time(self):
         elapsed_time = time.time() - self.start_time
         return self.format_time(elapsed_time)
+    
+    def set_rest_duration(self, duration):
+        self.rest_duration = duration
+
+    def get_rest_duration(self):
+        return self.rest_duration
+
+    def set_custom_message(self, message):
+        self.custom_message = message
+
+    def get_custom_message(self):
+        return self.custom_message if hasattr(self, 'custom_message') else "Time to take a break!"
 
     @staticmethod
     def format_time(seconds):
