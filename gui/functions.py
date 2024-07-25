@@ -61,6 +61,8 @@ class myAssistant(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.initUI()
+        self.assistant_id = assistant_id
+        self.thread_id = thread_id
         self.screen_time_update_timer = QTimer()
         self.google_connected = False
         self.screen_time_displayed = False
@@ -301,7 +303,7 @@ class myAssistant(QWidget):
                 QMessageBox.warning(self, "Error", "Failed to retrieve user email. Please Connect To Your Google Account.")
                 return
             self.user_id = self.generate_user_id(user_email)
-        self.to_do_list_dialog = ToDoListDialog(self.user_id)
+        self.to_do_list_dialog = ToDoListDialog(self.user_id, self.assistant_id, self.thread_id)
         self.to_do_list_dialog.show()
     
     def chatWithAssistant(self):

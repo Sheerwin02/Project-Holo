@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QListWidget, QDateTimeEdit,
-    QMessageBox, QLabel, QSystemTrayIcon, QMenu, QAbstractItemView, QComboBox, QCheckBox, QTextEdit, QListWidgetItem, QWidget
+    QMessageBox, QLabel, QSystemTrayIcon, QMenu, QAbstractItemView, QComboBox, QCheckBox, QTextEdit, QListWidgetItem, QWidget, QInputDialog
 )
 from PyQt6.QtCore import Qt, QDateTime, QTimer
 from PyQt6.QtGui import QIcon, QAction, QColor
@@ -8,14 +8,21 @@ import database
 import logging
 from task_widget import TaskWidget
 from styles import style_sheet
+from assistant import get_completion, create_assistant, create_thread
+import json
+
+assistant_id = create_assistant(name="Holo", instructions="You are a helpful assistant.", model="gpt-4o")
+thread_id = create_thread(debug=True)
 
 # Configure logging
 logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ToDoListDialog(QDialog):
-    def __init__(self, user_id):
+    def __init__(self, user_id, assistant_id , thread_id):
         super().__init__()
         self.user_id = user_id  # Store the user_id
+        self.assistant_id = assistant_id  # Store the assistant_id
+        self.thread_id = thread_id  # Store the thread_id
         self.setWindowTitle("To-Do List")
         self.setGeometry(100, 100, 800, 600)
         self.setWindowIcon(QIcon('icons/todo.png'))
@@ -69,6 +76,11 @@ class ToDoListDialog(QDialog):
         self.delete_button.setIcon(QIcon('icons/delete.png'))
         self.delete_button.clicked.connect(self.delete_task)
         self.button_layout.addWidget(self.delete_button)
+
+        self.auto_fill_button = QPushButton("AI Suggest", self)  # Add Auto Fill button
+        self.auto_fill_button.setIcon(QIcon('icons/fill.png'))
+        self.auto_fill_button.clicked.connect(self.auto_fill_fields)
+        self.button_layout.addWidget(self.auto_fill_button)
 
         self.layout.addLayout(self.button_layout)
 
@@ -295,6 +307,63 @@ class ToDoListDialog(QDialog):
         self.description_input.clear()
         self.recurring_input.setCurrentIndex(0)  # Set to "None"
         logging.info(f"Task marked as completed with ID: {task_id}")
+
+    def auto_fill_fields(self):
+        # Prompt the user to enter a suitable topic
+        topic, ok = QInputDialog.getText(self, 'Input Topic', 'Enter a suitable topic for the task:')
+        
+        if ok and topic:
+            prompt = f"""
+            Generate suitable values for a task related to "{topic}" for university students. The output should be a JSON object with the following fields (The due date should not be earlier than the current date and time and must be logical) Examples:
+            {{
+                "title": "Example Title",
+                "due_date": "2024-07-25 14:00",
+                "priority": "Medium",
+                "description": "This is an example task description.",
+                "recurring": "None"
+            }}
+            """
+            print("Sending prompt to AI for auto-fill fields...")
+            response = get_completion(self.assistant_id, self.thread_id, prompt, funcs=[])
+
+            print(f"AI Response: {response}")
+
+            if response:
+                try:
+                    # Extract JSON part from the response
+                    json_start = response.find('{')
+                    json_end = response.rfind('}') + 1
+                    json_str = response[json_start:json_end]
+
+                    print(f"Extracted JSON String: {json_str}")
+
+                    task_data = json.loads(json_str)
+                    print(f"Decoded JSON: {task_data}")
+
+                    self.title_input.setText(task_data.get("title", "Default Title"))
+                    self.due_date_input.setDateTime(QDateTime.fromString(task_data.get("due_date", QDateTime.currentDateTime().addDays(1).toString("yyyy-MM-dd HH:mm")), "yyyy-MM-dd HH:mm"))
+
+                    priority_map = {"High": 0, "Medium": 1, "Low": 2}
+                    self.priority_input.setCurrentIndex(priority_map.get(task_data.get("priority", "Medium"), 1))
+
+                    self.description_input.setPlainText(task_data.get("description", "Default description for the task."))
+
+                    recurring_map = {"None": 0, "Daily": 1, "Weekly": 2, "Monthly": 3}
+                    self.recurring_input.setCurrentIndex(recurring_map.get(task_data.get("recurring", "None"), 0))
+
+                    QMessageBox.information(self, "Auto Fill", "Fields have been auto-filled with AI-generated values.")
+                except json.JSONDecodeError as e:
+                    print(f"JSONDecodeError: {e}")
+                    QMessageBox.warning(self, "Auto Fill Error", "Failed to decode AI response.")
+            else:
+                print("Failed to get response from AI.")
+                QMessageBox.warning(self, "Auto Fill Error", "Failed to get response from AI.")
+        else:
+            print("User did not enter a topic.")
+            QMessageBox.warning(self, "Input Error", "Please enter a suitable topic.")
+
+
+
 
     def closeEvent(self, event):
         self.hide()
