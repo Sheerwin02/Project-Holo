@@ -1,8 +1,10 @@
+import datetime
 from email.mime.application import MIMEApplication
 import os
 import logging
 import base64
 from email.mime.text import MIMEText
+import pickle
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -49,21 +51,29 @@ def connect_to_google_account():
 
 
 def get_calendar_service():
-    try:
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-        service = build('calendar', 'v3', credentials=creds)
-        logging.info("Google Calendar service built successfully.")
-        return service
-    except Exception as e:
-        logging.error(f"Error building Google Calendar service: {e}")
-        return None
+    creds = None
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
+    service = build('calendar', 'v3', credentials=creds)
+    return service
 
 def get_upcoming_events(max_results=10):
     service = get_calendar_service()
     if service:
         try:
+            now = datetime.datetime.utcnow().isoformat() + 'Z'  # 'Z' indicates UTC time
             events_result = service.events().list(
-                calendarId='primary', maxResults=max_results, singleEvents=True,
+                calendarId='primary', timeMin=now, maxResults=max_results, singleEvents=True,
                 orderBy='startTime').execute()
             events = events_result.get('items', [])
             if not events:
@@ -72,13 +82,16 @@ def get_upcoming_events(max_results=10):
             events_list = []
             for event in events:
                 start = event['start'].get('dateTime', event['start'].get('date'))
-                events_list.append(f"{event['id']}: {start}: {event['summary']}")
+                end = event['end'].get('dateTime', event['end'].get('date'))
+                description = event.get('description', 'No description available')
+                events_list.append(f"{event['id']}: {start}: {description}: {end}")
             logging.info("Upcoming events retrieved successfully.")
             return events_list
         except Exception as e:
             logging.error(f"Error retrieving events: {e}")
             return [f"Error retrieving events: {e}"]
     return ["Failed to build Google Calendar service."]
+
 
 def add_event(summary, start_time, end_time, description=''):
     service = get_calendar_service()
