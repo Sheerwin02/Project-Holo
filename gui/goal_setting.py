@@ -1,6 +1,8 @@
 import sqlite3
 from datetime import datetime, timedelta
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QListWidget, QLabel, QInputDialog, QMessageBox, QFormLayout, QTextEdit, QDateEdit, QComboBox, QWidget, QListWidgetItem, QTabWidget, QCalendarWidget, QProgressBar
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QListWidget, QLabel, QInputDialog, QMessageBox, 
+                             QCheckBox, QFormLayout, QTextEdit, QDateEdit, QComboBox, QWidget, 
+                             QListWidgetItem, QTabWidget, QCalendarWidget, QProgressBar)
 from PyQt6.QtCore import QDate, Qt
 from PyQt6.QtGui import QPixmap, QColor
 from fpdf import FPDF
@@ -594,6 +596,11 @@ class GoalSettingDialog(QDialog):
         self.category_filter.currentTextChanged.connect(self.filter_goals)
         filter_layout.addWidget(QLabel("Category:"))
         filter_layout.addWidget(self.category_filter)
+
+        self.show_archived_checkbox = QCheckBox("Show Archived")
+        self.show_archived_checkbox.stateChanged.connect(self.load_goals)
+        filter_layout.addWidget(self.show_archived_checkbox)
+
         layout.addLayout(filter_layout)
 
         self.goal_list = QListWidget()
