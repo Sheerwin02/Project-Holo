@@ -269,20 +269,20 @@ class ToDoListDialog(QDialog):
 
     def show_notification(self, task_title):
         tray_icon = QSystemTrayIcon(self)
-        tray_icon.setIcon(QIcon("icons/reminder.png"))
+        # tray_icon.setIcon(QIcon("icons/reminder.png"))
         tray_icon.show()
         tray_icon.showMessage("Task Reminder", f"Task '{task_title}' is due now!", QSystemTrayIcon.MessageIcon.Information, 3000)
 
     def show_context_menu(self, position):
         context_menu = QMenu(self)
         edit_action = QAction("Edit Task", self)
-        edit_action.setIcon(QIcon('icons/edit.png'))
+        # edit_action.setIcon(QIcon('icons/edit.png'))
         edit_action.triggered.connect(self.edit_task)
         delete_action = QAction("Delete Task", self)
-        delete_action.setIcon(QIcon('icons/delete.png'))
+        # delete_action.setIcon(QIcon('icons/delete.png'))
         delete_action.triggered.connect(self.delete_task)
         complete_action = QAction("Mark as Completed", self)
-        complete_action.setIcon(QIcon('icons/complete.png'))
+        # complete_action.setIcon(QIcon('icons/complete.png'))
         complete_action.triggered.connect(self.mark_task_as_completed)
         context_menu.addAction(edit_action)
         context_menu.addAction(delete_action)
@@ -361,9 +361,6 @@ class ToDoListDialog(QDialog):
         else:
             print("User did not enter a topic.")
             QMessageBox.warning(self, "Input Error", "Please enter a suitable topic.")
-
-
-
 
     def closeEvent(self, event):
         self.hide()
