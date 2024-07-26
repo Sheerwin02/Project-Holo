@@ -50,11 +50,14 @@ class NotificationThread(QThread):
         self.event_time = event_time
         self.event_summary = event_summary
         self.reminder_minutes = reminder_minutes
+        self.logger = logging.getLogger(__name__)
 
     def run(self):
         time_to_wait = (self.event_time - datetime.datetime.now(datetime.timezone.utc)).total_seconds() - (self.reminder_minutes * 60)
         if time_to_wait > 0:
+            self.logger.info(f"Notification thread sleeping for {time_to_wait} seconds.")
             QThread.sleep(int(time_to_wait))  # Convert to integer by rounding
+        self.logger.info(f"Triggering notification for event: {self.event_summary}")
         self.notify.emit("Event Reminder", f"Upcoming Event: {self.event_summary}")
 
 class CalendarWidget(QWidget):
@@ -133,7 +136,8 @@ class CalendarWidget(QWidget):
         """)
 
         self.main_layout = QHBoxLayout(self)
-        self.notification_threads = []
+        self.notification_threads = {}
+        self.logger = logging.getLogger(__name__)
 
         # Sidebar
         self.sidebar_layout = QVBoxLayout()
@@ -276,6 +280,7 @@ class CalendarWidget(QWidget):
                         print(f"Skipping event due to insufficient details: {event}")  # Debug statement
                         continue
 
+                    event_id = event_details[0]
                     event_datetime = datetime.datetime.fromisoformat(event_details[1].replace("Z", "+00:00")).astimezone(myt)
                     event_date_str = event_datetime.strftime("%Y-%m-%d")
                     event_day = event_datetime.strftime("%A")
@@ -340,7 +345,7 @@ class CalendarWidget(QWidget):
                             print("Adding event frame to scroll layout...")  # Debug statement
                             self.scroll_layout.addWidget(event_frame)
 
-                            self.create_notification(event_datetime, event_details[-1], 10)  # Default reminder 10 minutes before
+                            self.create_notification(event_id, event_datetime, event_details[-1], 10)  # Default reminder 10 minutes before
                         else:
                             print(f"Event not displayed due to filter conditions: {event}")  # Debug statement
                     else:
@@ -362,15 +367,16 @@ class CalendarWidget(QWidget):
 
         print("fetch_events method completed")  # Debug statement
 
-
-
-    def create_notification(self, event_time, event_summary, reminder_minutes):
-        notification_thread = NotificationThread(event_time, event_summary, reminder_minutes)
-        notification_thread.notify.connect(self.show_notification)
-        notification_thread.start()
-        self.notification_threads.append(notification_thread)
+    def create_notification(self, event_id, event_time, event_summary, reminder_minutes):
+        if event_id not in self.notification_threads:
+            self.logger.info(f"Creating notification for event: {event_summary} at {event_time} with a reminder {reminder_minutes} minutes before.")
+            notification_thread = NotificationThread(event_time, event_summary, reminder_minutes)
+            notification_thread.notify.connect(self.show_notification)
+            notification_thread.start()
+            self.notification_threads[event_summary] = notification_thread
 
     def show_notification(self, title, message):
+        self.logger.info(f"Showing notification: {title}, {message}")
         notification.notify(
             title=title,
             message=message,
@@ -710,4 +716,9 @@ class CalendarWidget(QWidget):
             QMessageBox.warning(self, "Error", f"Error parsing slot time: {e}")
             dialog.close()
 
+    def closeEvent(self, event):
+        for thread in self.notification_threads.values():
+            thread.terminate()
+        self.hide()
+        event.ignore()
 
