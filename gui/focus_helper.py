@@ -58,19 +58,23 @@ if __name__ == "__main__":
     
     if action == "block" and len(sys.argv) == 3:
         website = sys.argv[2]
+        print(f"Blocking website: {website}")  # Debug print
         block_website(website)
         if website not in blocked_websites:
             blocked_websites.append(website)
         save_blocked_websites(blocked_websites)
     elif action == "unblock" and len(sys.argv) == 3:
         website = sys.argv[2]
+        print(f"Unblocking website: {website}")  # Debug print
         unblock_website(website)
         if website in blocked_websites:
             blocked_websites.remove(website)
         save_blocked_websites(blocked_websites)
     elif action == "unblock_all":
+        print("Unblocking all websites")  # Debug print
         unblock_all_websites()
         save_blocked_websites([])
     else:
         print("Invalid arguments")
         sys.exit(1)
+

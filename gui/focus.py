@@ -192,7 +192,9 @@ class FocusTimer(QDialog):
     def unblock_website(self):
         selected_items = self.blocked_websites_list.selectedItems()
         for item in selected_items:
-            self.blocked_websites.remove(item.text())
+            website = item.text()
+            self.run_privileged_script("unblock", website)
+            self.blocked_websites.remove(website)
             self.blocked_websites_list.takeItem(self.blocked_websites_list.row(item))
         self.apply_blocked_websites()
 
@@ -207,7 +209,9 @@ class FocusTimer(QDialog):
             self.run_privileged_script("block", website)
 
     def run_privileged_script(self, action, website=""):
-        command = [sys.executable, "focus_helper.py", action, website]
+        command = [sys.executable, "focus_helper.py", action]
+        if website:
+            command.append(website)
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error executing script: {result.stderr}")
