@@ -315,7 +315,7 @@ def analyze_image(file_path, debug=False):
                 "content": [
                     {
                         "type": "text",
-                        "text": "Please give feedback on what's you seeing and chat with the user like an human assistant, your reply is short and people will enjoy chatting with you."
+                        "text": "Please give feedback on what's you seeing and chat with the user like an human assistant with emotion, your reply is short and people will enjoy chatting with you."
                     },
                     {
                         "type": "image_url",

@@ -87,7 +87,7 @@ class myAssistant(QWidget):
         self.chat_bubble.setStyleSheet("background-color: black; border: 1px solid black; border-radius: 10px; padding: 5px;")
         self.chat_bubble.hide()
 
-        self.screen_time_label = QLabel(self)  # Add this line
+        self.screen_time_label = QLabel(self) 
         self.screen_time_label.setStyleSheet("background-color: black; border: 1px solid black; padding: 5px;")
         self.screen_time_label.hide()  # Initially hide the label
 
@@ -190,14 +190,14 @@ class myAssistant(QWidget):
 
     def contextMenuEvent(self, event):
         contextMenu = QMenu(self)
-        addPet = contextMenu.addAction("Add")
-        removePet = contextMenu.addAction("Delete")
+        # addPet = contextMenu.addAction("Add")
+        # removePet = contextMenu.addAction("Delete")
         chat = contextMenu.addAction("Chat")
         sticky_note = contextMenu.addAction("Sticky Note")
         to_do_list = contextMenu.addAction("To-Do List")
         set_goals = contextMenu.addAction("Set Goals") 
         toggle_reminder = contextMenu.addAction("Toggle Reminder" if not self.screen_time_tracker.reminder_enabled else "Disable Reminder")
-        toggle_ocr_feedback = contextMenu.addAction("Disable OCR Feedback" if self.ocr_feedback_enabled else "Enable OCR Feedback")
+        toggle_ocr_feedback = contextMenu.addAction("Disable Feedback" if self.ocr_feedback_enabled else "Enable Feedback")
         display_screen_time = contextMenu.addAction("Hide Screen Time" if self.screen_time_displayed else "Display Screen Time")  
         connect_google = contextMenu.addAction("Disconnect Google Account" if self.google_connected else "Connect Google Account")
         show_calendar = contextMenu.addAction("Show Calendar")
@@ -207,11 +207,11 @@ class myAssistant(QWidget):
         quit = contextMenu.addAction("Quit")
 
         action = contextMenu.exec(event.globalPos())
-        if action == addPet:
-            addOnePet()
-        elif action == removePet:
-            delOnePet()
-        elif action == chat:
+        # if action == addPet:
+        #     addOnePet()
+        # elif action == removePet:
+        #     delOnePet()
+        if action == chat:
             self.chatWithAssistant()
         elif action == sticky_note:
             self.open_sticky_note()
@@ -246,9 +246,10 @@ class myAssistant(QWidget):
         self.ocr_feedback_enabled = not self.ocr_feedback_enabled
         if self.ocr_feedback_enabled:
             self.start_ocr_feedback()
+            QMessageBox.information(self, "OCR Feedback", "OCR Feedback is now enabled. Please wait for a few seconds!")
         else:
             self.stop_ocr_feedback()
-        QMessageBox.information(self, "OCR Feedback", "OCR Feedback is now " + ("enabled" if self.ocr_feedback_enabled else "disabled"))
+            QMessageBox.information(self, "OCR Feedback", "OCR Feedback is now disabled")
 
     def start_ocr_feedback(self):
         logging.info("Starting OCR feedback thread.")
@@ -315,7 +316,11 @@ class myAssistant(QWidget):
         self.chat_bubble.setText(text)
         self.chat_bubble.adjustSize()
         self.chat_bubble.show()
-        QTimer.singleShot(55000, self.chat_bubble.hide)  # Hide the chat bubble after 55 seconds
+        QTimer.singleShot(55000, self.hide_chat_bubble)  # Hide the chat bubble after 55 seconds
+
+    def hide_chat_bubble(self):
+        self.chat_bubble.hide()
+        self.chat_bubble.resize(0, 0)  # Reset the size when hidden
 
     ## Screen Time Tracker
     def toggle_screen_time_reminder(self):
@@ -435,4 +440,4 @@ def delOnePet():
 
 
 def aboutInfo():
-    webbrowser.open_new_tab("https://github.com/luxingwen/desktop-pet-miku")
+    webbrowser.open_new_tab("https://github.com/Sheerwin02/Project-Holo")
