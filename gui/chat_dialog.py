@@ -1,27 +1,21 @@
 import sys
 import speech_recognition as sr
-from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QCheckBox
-from PyQt6.QtCore import pyqtSignal, QThread
-from gradio_client import Client
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QCheckBox, QInputDialog, QLabel
+from PyQt6.QtCore import pyqtSignal, QThread, Qt
 import soundfile as sf
 import sounddevice as sd
+import logging
 
 sys.path.append('../server')
 from assistant import get_completion
 from utils import get_current_location, get_weather, get_news_updates
+from announce_news import NewsAnnouncer
+from tts_thread import TextToSpeechThread
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 funcs = [get_current_location, get_weather, get_news_updates]
-
-API_URL = "https://xzjosh-azuma-bert-vits2-0-2.hf.space/--replicas/v0fs1/"
-# Initialize the Gradio client
-try:
-    print(f"Connecting to API at {API_URL}")
-    client = Client(API_URL)
-    print("Connected successfully.")
-except ValueError as e:
-    print(f"Error connecting to API: {e}")
-    sys.exit(1)
-
 
 class SpeechToTextThread(QThread):
     recognized_text = pyqtSignal(str)
@@ -41,35 +35,25 @@ class SpeechToTextThread(QThread):
         except sr.UnknownValueError:
             self.error_occurred.emit("Unable to recognize speech")
 
+class NewsAnnouncementThread(QThread):
+    announcement_complete = pyqtSignal(str)
+    news_text_ready = pyqtSignal(str)
 
-class TextToSpeechThread(QThread):
-    error_occurred = pyqtSignal(str)
-    audio_ready = pyqtSignal(str, str)  # Include text in the signal
-
-    def __init__(self, text):
+    def __init__(self, topic, use_audio):
         super().__init__()
-        self.text = text
+        self.topic = topic
+        self.use_audio = use_audio
+        self.news_announcer = NewsAnnouncer(topic)
+        self.news_announcer.announcement_complete.connect(self.announcement_complete.emit)
+        self.news_announcer.news_text_ready.connect(self.news_text_ready.emit)
 
     def run(self):
-        try:
-            result = client.predict(
-                self.text,  # input text
-                "东雪莲",  # voice type
-                0.2,  # SDP/DP slider value
-                0.7,  # float (numeric value between 0.1 and 2) in '感情' Slider component
-                0.9,  # 音素长度 slider value
-                1.0,  # 语速 slider value
-                "EN",  # Language type
-                False,  # bool  in '按句切分    在按段落切分的基础上再按句子切分文本' Checkbox component
-                0.2,  # float (numeric value between 0 and 10) in '段间停顿(秒)，需要大于句间停顿才有效' Slider component
-                1,  # float (numeric value between 0 and 5) in '句间停顿(秒)，勾选按句切分才生效' Slider component
-                api_name="/tts_split"
-            )
-            audio_path = result[1]  # The audio file path
-            self.audio_ready.emit(audio_path, self.text)  # Emit the signal with the audio path and text
-        except Exception as e:
-            self.error_occurred.emit(f"Error in TTS: {e}")
-
+        if self.use_audio:
+            self.news_announcer.announce_news()
+        else:
+            news_text = self.news_announcer.fetch_news()
+            self.news_text_ready.emit(news_text)
+            self.announcement_complete.emit("Announcement complete.")
 
 class ChatDialog(QDialog):
     response_received = pyqtSignal(str)
@@ -96,11 +80,22 @@ class ChatDialog(QDialog):
         self.speech_button.clicked.connect(self.speech_to_text)
         button_layout.addWidget(self.speech_button)
 
+        self.announce_news_button = QPushButton("Announce News", self)
+        self.announce_news_button.clicked.connect(self.announce_news)
+        button_layout.addWidget(self.announce_news_button)
+
         self.audio_checkbox = QCheckBox("Enable Audio", self)
         self.audio_checkbox.setChecked(True)
         button_layout.addWidget(self.audio_checkbox)
 
         self.layout.addLayout(button_layout)
+
+        # Add loading label
+        self.loading_label = QLabel("Holo is currently finding the news for you", self)
+        self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_label.hide()
+        self.layout.addWidget(self.loading_label)
+
         self.setLayout(self.layout)
 
     def send_message(self):
@@ -134,10 +129,8 @@ class ChatDialog(QDialog):
 
     def play_audio_and_display_bubble(self, audio_path, text):
         try:
-            # Display the chat bubble first
             self.response_received.emit(f"Assistant: {text}")
 
-            # Play the audio
             data, samplerate = sf.read(audio_path)
             sd.play(data, samplerate)
             sd.wait()
@@ -147,3 +140,20 @@ class ChatDialog(QDialog):
     def closeEvent(self, event):
         self.hide()
         event.ignore()
+
+    def announce_news(self):
+        topic, ok = QInputDialog.getText(self, "News Topic", "Enter the topic for news updates:")
+        if ok and topic:
+            logging.info(f"Announcing news for topic: {topic}")
+            self.loading_label.show()
+            self.news_thread = NewsAnnouncementThread(topic, self.audio_checkbox.isChecked())
+            self.news_thread.announcement_complete.connect(self.display_announcement_status)
+            self.news_thread.news_text_ready.connect(self.display_news_text)
+            self.news_thread.start()
+
+    def display_news_text(self, news_text):
+        self.response_received.emit(f"News: {news_text}")
+
+    def display_announcement_status(self, status):
+        self.loading_label.hide()
+        QMessageBox.information(self, "Announcement Status", status)
