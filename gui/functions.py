@@ -87,7 +87,9 @@ class myAssistant(QWidget):
         self.chat_bubble.setStyleSheet("background-color: black; border: 1px solid black; border-radius: 10px; padding: 5px;")
         self.chat_bubble.hide()
 
-        self.screen_time_label = QLabel(self) 
+        self.screen_time_label = QLabel(self)
+        self.screen_time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.screen_time_label.setFixedSize(150, 30)
         self.screen_time_label.setStyleSheet("background-color: black; border: 1px solid black; padding: 5px;")
         self.screen_time_label.hide()  # Initially hide the label
 
