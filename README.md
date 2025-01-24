@@ -6,6 +6,10 @@ Project Holo is an AI-powered virtual assistant designed to enhance productivity
 
 ---
 
+## 📺 Demo
+
+Watch the system in action: [YouTube Demo](https://youtu.be/pZEmARMFG9c)
+
 ## ✨ Features
 
 - **AI Assistant Chat**: Text-to-speech and speech-to-text communication.
