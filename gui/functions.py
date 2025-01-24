@@ -192,8 +192,7 @@ class myAssistant(QWidget):
 
     def contextMenuEvent(self, event):
         contextMenu = QMenu(self)
-        # addPet = contextMenu.addAction("Add")
-        # removePet = contextMenu.addAction("Delete")
+        
         chat = contextMenu.addAction("Chat")
         sticky_note = contextMenu.addAction("Sticky Note")
         to_do_list = contextMenu.addAction("To-Do List")
@@ -209,10 +208,7 @@ class myAssistant(QWidget):
         quit = contextMenu.addAction("Quit")
 
         action = contextMenu.exec(event.globalPos())
-        # if action == addPet:
-        #     addOnePet()
-        # elif action == removePet:
-        #     delOnePet()
+
         if action == chat:
             self.chatWithAssistant()
         elif action == sticky_note:
@@ -324,6 +320,7 @@ class myAssistant(QWidget):
         self.chat_bubble.hide()
         self.chat_bubble.resize(0, 0)  # Reset the size when hidden
 
+### Screen Time Reminder
     ## Screen Time Tracker
     def toggle_screen_time_reminder(self):
         if not self.screen_time_tracker.reminder_enabled:

@@ -181,3 +181,5 @@ def update_task_due_date(user_id, task_id, new_due_date):
         logging.error(f"Error updating task due date: {e}")
     finally:
         conn.close()
+
+

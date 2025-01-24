@@ -45,8 +45,6 @@ class StickyNoteDialog(QDialog):
 
         self.load_notes_list()
 
-        # Removed the auto-save timer
-
     def load_notes_list(self):
         try:
             self.notes_list.clear()

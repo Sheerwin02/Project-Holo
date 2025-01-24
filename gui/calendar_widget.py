@@ -65,7 +65,7 @@ class CalendarWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Miku Calendar")
+        self.setWindowTitle("Google Calendar")
         self.setGeometry(100, 100, 800, 600)
         self.setStyleSheet("""
             QWidget {
@@ -552,20 +552,64 @@ class CalendarWidget(QWidget):
     def add_event(self, title, start_time, end_time, description, reminder_minutes):
         result = add_event(title, start_time, end_time, description)
         if "Event created" in result:
-            self.create_notification(datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00")).astimezone(pytz.timezone('Asia/Kuala_Lumpur')), title, reminder_minutes)
-        QMessageBox.information(self, "Add Event", result)
+            # Event creation was successful, show a notification
+            event_time = datetime.datetime.fromisoformat(start_time.replace("Z", "+00:00")).astimezone(pytz.timezone('Asia/Kuala_Lumpur'))
+            self.create_notification(result, event_time, title, reminder_minutes)
+            
+            # Show a popup message
+            QMessageBox.information(self, "Success", f"Event '{title}' added successfully!")
+        else:
+            # If there was an error, show an error message
+            QMessageBox.warning(self, "Error", f"Failed to add event: {result}")
+        
         self.update_events()
 
     def edit_event(self, event_id, title, start_time, end_time, description):
         result = edit_event(event_id, title, start_time, end_time, description)
-        QMessageBox.information(self, "Edit Event", result)
+        
+        if "Event updated" in result:  
+            QMessageBox.information(self, "Success", f"Event '{title}' updated successfully!")
+        else:
+            QMessageBox.warning(self, "Error", f"Failed to update event: {result}")
+        
         self.update_events()
 
     def delete_event(self, event):
         event_id = event.split(": ")[0]
-        result = delete_event(event_id)
-        QMessageBox.information(self, "Delete Event", result)
-        self.update_events()
+        event_title = event.split(": ")[1]  # Assuming the title is the second part after splitting
+
+        # Create the confirmation dialog
+        confirm_dialog = QMessageBox(self)
+        confirm_dialog.setWindowTitle("Confirm Deletion")
+        confirm_dialog.setText(f"Are you sure you want to delete the event '{event_title}'?")
+        confirm_dialog.setIcon(QMessageBox.Icon.Question)
+        
+        # Add Yes and No buttons
+        yes_button = confirm_dialog.addButton(QMessageBox.StandardButton.Yes)
+        no_button = confirm_dialog.addButton(QMessageBox.StandardButton.No)
+
+        # Set button styles to have black text
+        confirm_dialog.setStyleSheet("""
+            QPushButton {
+                color: black;
+            }
+        """)
+        
+        # Execute the dialog and get the user's choice
+        confirm_dialog.exec()
+
+        # Check if the user clicked 'Yes'
+        if confirm_dialog.clickedButton() == yes_button:
+            result = delete_event(event_id)
+            
+            # Show a success or error message based on the result
+            if "Event deleted" in result:  # Assuming the success message contains "Event deleted"
+                QMessageBox.information(self, "Success", f"Event '{event_title}' deleted successfully!")
+            else:
+                QMessageBox.warning(self, "Error", f"Failed to delete event: {result}")
+            
+            # Update the events list
+            self.update_events()
 
     def show_schedule_event_dialog(self):
         ai_schedule_dialog = QDialog(self)

@@ -7,6 +7,8 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 
+from PyQt6.QtWidgets import QSpinBox
+
 class FocusTimer(QDialog):
     focus_message = pyqtSignal(str)
 
@@ -16,21 +18,23 @@ class FocusTimer(QDialog):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_timer)
         self.is_focus = True
-        self.focus_time = 25 * 60  # 25 minutes
-        self.break_time = 5 * 60   # 5 minutes
+        self.default_focus_time = 25 * 60  # 25 minutes
+        self.default_break_time = 5 * 60   # 5 minutes
+        self.focus_time = self.default_focus_time
+        self.break_time = self.default_break_time
         self.remaining_time = self.focus_time
         self.blocked_websites = []
 
         # Check for admin privileges on Windows
         if sys.platform == "win32" and not self.is_admin():
             self.request_admin_permissions()
-        
+
         # Load blocked websites from storage
         self.load_blocked_websites()
 
     def initUI(self):
         self.setWindowTitle("Focus Mode")
-        self.setGeometry(300, 300, 400, 300)
+        self.setGeometry(300, 300, 400, 400)
         self.setStyleSheet("""
             QWidget {
                 background-color: #E0FFFF;
@@ -40,7 +44,7 @@ class FocusTimer(QDialog):
                 font-size: 20px;
                 color: #000000;
             }
-            QLineEdit {
+            QLineEdit, QSpinBox {
                 font-size: 14px;
                 color: #000000;
                 background-color: #ffffff;
@@ -80,6 +84,19 @@ class FocusTimer(QDialog):
         """)
 
         self.layout = QVBoxLayout()
+
+        # Input fields for focus and break durations
+        self.focus_time_input = QSpinBox(self)
+        self.focus_time_input.setRange(1, 120)  # Limit between 1 and 120 minutes
+        self.focus_time_input.setValue(25)
+        self.layout.addWidget(QLabel("Focus Time (minutes):"))
+        self.layout.addWidget(self.focus_time_input)
+
+        self.break_time_input = QSpinBox(self)
+        self.break_time_input.setRange(1, 60)  # Limit between 1 and 60 minutes
+        self.break_time_input.setValue(5)
+        self.layout.addWidget(QLabel("Break Time (minutes):"))
+        self.layout.addWidget(self.break_time_input)
 
         self.timer_label = QLabel("25:00", self)
         self.timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -126,24 +143,11 @@ class FocusTimer(QDialog):
         self.layout.addLayout(button_layout)
         self.setLayout(self.layout)
 
-    def is_admin(self):
-        try:
-            return ctypes.windll.shell32.IsUserAnAdmin()
-        except:
-            return False
-
-    def request_admin_permissions(self):
-        try:
-            if not self.is_admin():
-                # Restart the program with admin rights
-                script = os.path.abspath(sys.argv[0])
-                params = " ".join([f'"{arg}"' for arg in sys.argv[1:]])
-                ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, f'"{script}" {params}', None, 1)
-                sys.exit()
-        except Exception as e:
-            print(f"Error requesting admin permissions: {e}")
-
     def start_timer(self):
+        self.focus_time = self.focus_time_input.value() * 60
+        self.break_time = self.break_time_input.value() * 60
+        self.remaining_time = self.focus_time if self.is_focus else self.break_time
+        self.update_timer_label()
         self.timer.start(1000)
         self.focus_message.emit("Focus session started. Let's get to work!")
 
@@ -216,6 +220,23 @@ class FocusTimer(QDialog):
         if result.returncode != 0:
             print(f"Error executing script: {result.stderr}")
         return result.stdout
+
+    def is_admin(self):
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
+
+    def request_admin_permissions(self):
+        try:
+            if not self.is_admin():
+                # Restart the program with admin rights
+                script = os.path.abspath(sys.argv[0])
+                params = " ".join([f'"{arg}"' for arg in sys.argv[1:]])
+                ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, f'"{script}" {params}', None, 1)
+                sys.exit()
+        except Exception as e:
+            print(f"Error requesting admin permissions: {e}")
 
     def closeEvent(self, event):
         self.run_privileged_script("unblock_all")

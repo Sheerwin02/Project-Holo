@@ -260,8 +260,11 @@ class EmailManager(QWidget):
         form_layout = QFormLayout(send_dialog)
 
         recipient_input = QLineEdit(send_dialog)
+        recipient_input.setStyleSheet("color: #000000;")  # Set text color to black
         subject_input = QLineEdit(send_dialog)
+        subject_input.setStyleSheet("color: #000000;")  # Set text color to black
         body_input = QTextEdit(send_dialog)
+        body_input.setStyleSheet("color: #000000; background-color: #ffffff;")  # Set text color to black and background color to white
         attachments = []
 
         form_layout.addRow("Recipient:", recipient_input)
@@ -269,18 +272,19 @@ class EmailManager(QWidget):
         form_layout.addRow("Body:", body_input)
 
         attach_button = QPushButton("Attach File", send_dialog)
+        attach_button.setStyleSheet("color: #000000; background-color: #ffffff;")  # Set text color to black and background color to white
         attach_button.clicked.connect(lambda: self.attach_file(attachments))
         form_layout.addRow(attach_button)
 
         button_layout = QHBoxLayout()
 
         send_button = QPushButton("Send", send_dialog)
-        send_button.setStyleSheet("color: #000000; background-color: #ffffff;")
+        send_button.setStyleSheet("color: #000000; background-color: #ffffff;")  # Set text color to black and background color to white
         send_button.clicked.connect(lambda: self.send_email(recipient_input.text(), subject_input.text(), body_input.toPlainText(), attachments, send_dialog))
         button_layout.addWidget(send_button)
 
         cancel_button = QPushButton("Cancel", send_dialog)
-        cancel_button.setStyleSheet("color: #000000; background-color: #ffffff;")
+        cancel_button.setStyleSheet("color: #000000; background-color: #ffffff;")  # Set text color to black and background color to white
         cancel_button.clicked.connect(send_dialog.close)
         button_layout.addWidget(cancel_button)
 
@@ -290,10 +294,15 @@ class EmailManager(QWidget):
         send_dialog.exec()
 
     def attach_file(self, attachments):
-        options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Attachment", "", "All Files (*);;Text Files (*.txt);;Images (*.png *.jpg);;PDF Files (*.pdf)", options=options)
+        options = QFileDialog.Option.ReadOnly  # Use an appropriate QFileDialog.Option
+        file_path, _ = QFileDialog.getOpenFileName(self, 
+                                                "Select Attachment", 
+                                                "", 
+                                                "All Files (*);;Text Files (*.txt);;Images (*.png *.jpg);;PDF Files (*.pdf)", 
+                                                options=options)
         if file_path:
             attachments.append(file_path)
+            QMessageBox.information(self, "Attachment Added", f"File '{file_path}' added successfully!")
 
     def send_email(self, recipient, subject, body, attachments, dialog):
         result = send_email(recipient, subject, body, attachments)

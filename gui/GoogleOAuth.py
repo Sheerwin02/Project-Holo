@@ -11,6 +11,10 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 import mimetypes
 from email.mime.multipart import MIMEMultipart
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 
 # Configure logging
 logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -222,13 +226,29 @@ def quick_reply(message_id, reply_text):
             return f"Error sending reply: {e}"
     return "Failed to build Gmail service."
 
-def send_email(to, subject, body):
+def send_email(to, subject, body, attachments=None):
     service = get_gmail_service()
     if service:
         try:
-            message = MIMEText(body)
+            message = MIMEMultipart()
             message['to'] = to
             message['subject'] = subject
+
+            # Attach the body of the email
+            message.attach(MIMEText(body, 'plain'))
+
+            # Handle attachments
+            if attachments:
+                for file in attachments:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(open(file, 'rb').read())
+                    encoders.encode_base64(part)
+                    part.add_header(
+                        'Content-Disposition',
+                        f'attachment; filename={os.path.basename(file)}'
+                    )
+                    message.attach(part)
+
             raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
             message = {'raw': raw}
             service.users().messages().send(userId='me', body=message).execute()

@@ -68,12 +68,18 @@ class GoalSetting:
         """Add a new goal to the database with validation."""
         if not title:
             raise ValueError("Title is required.")
+        
         if priority not in range(1, 6):
             raise ValueError("Priority must be between 1 and 5.")
+        
         try:
-            datetime.strptime(deadline, "%Y-%m-%d")
+            deadline_date = datetime.strptime(deadline, "%Y-%m-%d").date()
         except ValueError:
             raise ValueError("Deadline must be in YYYY-MM-DD format.")
+
+        # Validate that the deadline is not in the past
+        if deadline_date < datetime.now().date():
+            raise ValueError("Deadline cannot be in the past.")
 
         cursor = self.conn.cursor()
         cursor.execute('''
@@ -92,11 +98,20 @@ class GoalSetting:
         return cursor.fetchall()
 
     def complete_goal(self, goal_id):
-        """Mark a goal as complete."""
+        """Mark a goal as complete by updating its status and setting the completed date."""
         cursor = self.conn.cursor()
         cursor.execute('''
             UPDATE goals SET status = 'complete', completed_at = ? WHERE id = ?
         ''', (datetime.now().isoformat(), goal_id))
+        self.conn.commit()
+
+    def update_goal_status(self, goal_id, status, completed_at):
+        """Update the status and completion date of a goal."""
+        progress = 100 if status == 'complete' else 0
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            UPDATE goals SET status = ?, completed_at = ?, progress = ? WHERE id = ?
+        ''', (status, completed_at, progress, goal_id))
         self.conn.commit()
 
     def delete_goal(self, goal_id):
@@ -328,6 +343,9 @@ class DashboardWidget(QWidget):
         self.load_goals()
         self.load_upcoming_goals()
 
+        # Connect the signal once here
+        self.upcoming_list.itemClicked.connect(self.goal_clicked)
+
     def init_ui(self):
         self.layout = QVBoxLayout(self)
 
@@ -408,7 +426,7 @@ class DashboardWidget(QWidget):
             item = QListWidgetItem(f"{goal[1]} - Due: {goal[3]}")
             item.setData(Qt.ItemDataRole.UserRole, goal[0])
             self.upcoming_list.addItem(item)
-        self.upcoming_list.itemClicked.connect(self.goal_clicked)
+        #self.upcoming_list.itemClicked.connect(self.goal_clicked)
 
     def filter_goals(self):
         search_text = self.search_bar.text().lower()
@@ -445,12 +463,22 @@ class DashboardWidget(QWidget):
         return goals
 
     def goal_clicked(self, item):
+        # Ensure this function is executed only once per click.
+        print("Goal clicked.")  # Debug statement
+
         goal_id = item.data(Qt.ItemDataRole.UserRole)
-        goal = self.goal_setting.get_goals(self.user_id, include_archived=True)
-        goal = next((g for g in goal if g[0] == goal_id), None)
+        
+        # Retrieve the goal based on the clicked item.
+        goal = next((g for g in self.goal_setting.get_goals(self.user_id, include_archived=True) if g[0] == goal_id), None)
+        
         if goal:
-            details_dialog = QDialog(self)
-            details_dialog.setWindowTitle('Goal Details')
+            # Check if the dialog is already open to prevent multiple openings.
+            if hasattr(self, 'details_dialog') and self.details_dialog.isVisible():
+                return
+
+            # Open the goal details dialog.
+            self.details_dialog = QDialog(self)
+            self.details_dialog.setWindowTitle('Goal Details')
             layout = QVBoxLayout()
 
             layout.addWidget(QLabel(f"Title: {goal[1]}"))
@@ -465,21 +493,32 @@ class DashboardWidget(QWidget):
 
             if goal[5] != 'complete':
                 complete_button = QPushButton('Mark as Complete')
-                complete_button.clicked.connect(lambda: self.mark_as_complete(goal_id, details_dialog))
+                complete_button.clicked.connect(lambda: self.mark_as_complete(goal_id, self.details_dialog))
                 layout.addWidget(complete_button)
-            
+
             edit_button = QPushButton('Edit Goal')
-            edit_button.clicked.connect(lambda: self.edit_goal(goal_id, details_dialog))
+            edit_button.clicked.connect(lambda: self.edit_goal(goal_id, self.details_dialog))
             layout.addWidget(edit_button)
 
-            details_dialog.setLayout(layout)
-            details_dialog.exec()
+            self.details_dialog.setLayout(layout)
+            self.details_dialog.exec()
 
     def mark_as_complete(self, goal_id, dialog):
-        confirmation = QMessageBox.question(self, "Confirm Completion", "Are you sure you want to mark this goal as complete?")
-        if confirmation == QMessageBox.StandardButton.Yes:
-            self.goal_setting.complete_goal(goal_id)
-            self.refresh_dashboard()
+        """Toggle the completion status of the goal from the goal details view."""
+        goal = self.goal_setting.get_goals(self.user_id, include_archived=True)
+        goal = next((g for g in goal if g[0] == goal_id), None)
+        if goal:
+            if goal[5] == 'complete':
+                confirmation = QMessageBox.question(self, "Confirm Uncompletion", "Are you sure you want to mark this goal as incomplete?", 
+                                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if confirmation == QMessageBox.StandardButton.Yes:
+                    self.goal_setting.update_goal_status(goal_id, 'incomplete', None)
+            else:
+                confirmation = QMessageBox.question(self, "Confirm Completion", "Are you sure you want to mark this goal as complete?", 
+                                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if confirmation == QMessageBox.StandardButton.Yes:
+                    self.goal_setting.update_goal_status(goal_id, 'complete', datetime.now().isoformat())
+            self.refresh_all_tabs()
             dialog.close()
 
     def edit_goal(self, goal_id, dialog):
@@ -770,14 +809,20 @@ class GoalSettingDialog(QDialog):
             QMessageBox.warning(self, "Input Error", str(e))
 
     def complete_goal(self):
-        """Mark the selected goal as complete."""
+        """Toggle the completion status of the selected goal."""
         selected_goal = self.goal_list.currentItem()
         if selected_goal:
             goal_id = int(selected_goal.text().split(':')[0])
-            self.goal_setting.complete_goal(goal_id)
-            self.refresh_all_tabs()
+            goal = self.goal_setting.get_goals(self.user_id, include_archived=True)
+            goal = next((g for g in goal if g[0] == goal_id), None)
+            if goal:
+                if goal[5] == 'complete':
+                    self.goal_setting.update_goal_status(goal_id, 'incomplete', None)
+                else:
+                    self.goal_setting.update_goal_status(goal_id, 'complete', datetime.now().isoformat())
+                self.refresh_all_tabs()
         else:
-            QMessageBox.warning(self, "Select Goal", "Please select a goal to mark as complete.")
+            QMessageBox.warning(self, "Select Goal", "Please select a goal to toggle its completion status.")
 
     def delete_goal(self):
         """Delete the selected goal from the database."""
